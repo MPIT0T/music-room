@@ -1,0 +1,19 @@
+services:
+  db:
+    ports:
+      - "127.0.0.1:13306:3306" # exposing port on host for DB visualisation on tier apps
+  mailpit:
+    container_name: music-room-mailpit
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+  api:
+    build:
+      target: dev
+    environment:`
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/nodes_modules

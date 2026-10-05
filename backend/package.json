@@ -1,0 +1,16 @@
+{
+  "name": "music-room-backend",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "migrate": "node src/db/migrate.js"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "mysql2": "^3.11.0"
+  }
+}
