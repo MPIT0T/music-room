@@ -15,40 +15,32 @@ permissions:
   contents: read
 
 jobs:
-  compose:
-    name: Compose config
+  dev:
+    name: Dev stack and backend tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: cp .env.example .env
-      - name: Validate dev and prod compose files
+      - run: make dev
+      - run: make test
+      - name: Wait for /health
         run: |
-          docker compose --project-directory . --env-file .env -f infra/compose.yml -f infra/compose.dev.yml config -q
-          docker compose --project-directory . --env-file .env -f infra/compose.yml -f infra/compose.prod.yml config -q
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/health && exit 0
+            sleep 2
+          done
+          echo "api never became healthy"; exit 1
+      - name: Logs on failure
+        if: failure()
+        # make logs follows the output forever, timeout stops it once printed
+        run: timeout 15 make logs || true
+      - if: always()
+        run: make stop
 
-  backend:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - run: npm test
-
-  smoke:
+  prod:
     name: Prod stack smoke test
-    needs: [compose, backend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: cp .env.example .env
       - run: make prod
       - run: make prod-migrate
       - name: Wait for /health
@@ -60,7 +52,8 @@ jobs:
           echo "api never became healthy"; exit 1
       - name: Logs on failure
         if: failure()
-        run: docker compose --project-directory . --env-file .env -f infra/compose.yml -f infra/compose.prod.yml logs --tail=200
+        # make prod-logs follows the output forever, timeout stops it once printed
+        run: timeout 15 make prod-logs || true
       - if: always()
         run: make prod-down
 
