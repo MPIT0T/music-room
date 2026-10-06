@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Un nouveau push sur la meme PR annule le run precedent
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dev:
+    name: Dev stack and backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: make dev
+      - run: make test
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/health && exit 0
+            sleep 2
+          done
+          echo "api never became healthy"; exit 1
+      - name: Logs on failure
+        if: failure()
+        # make logs follows the output forever, timeout stops it once printed
+        run: timeout 15 make logs || true
+      - if: always()
+        run: make stop
+
+  prod:
+    name: Prod stack smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: make prod
+      - run: make prod-migrate
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/health && exit 0
+            sleep 2
+          done
+          echo "api never became healthy"; exit 1
+      - name: Logs on failure
+        if: failure()
+        # make prod-logs follows the output forever, timeout stops it once printed
+        run: timeout 15 make prod-logs || true
+      - if: always()
+        run: make prod-down
+
+  mobile:
+    name: Flutter analyze, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.6
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --debug

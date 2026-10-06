@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -41,7 +42,7 @@ class _InfraTestState extends State<InfraTest> {
     final uri = Uri.parse('${_url.text.replaceFirst('http', 'ws')}/ws');
     _ws = WebSocketChannel.connect(uri);
     _ws!.stream.listen(
-          (m) => _log('WS <- $m'),
+      (m) => _log('WS <- $m'),
       onError: (e) => _log('WS ERROR $e'),
       onDone: () => _log('WS closed'),
     );
@@ -78,21 +79,26 @@ class _InfraTestState extends State<InfraTest> {
               spacing: 8,
               children: [
                 ElevatedButton(
-                    onPressed: () => _call('GET', '/health'),
-                    child: const Text('Health')),
+                  onPressed: () => _call('GET', '/health'),
+                  child: const Text('Health'),
+                ),
                 ElevatedButton(
-                    onPressed: () => _call('POST', '/ping'),
-                    child: const Text('Ping')),
+                  onPressed: () => _call('POST', '/ping'),
+                  child: const Text('Ping'),
+                ),
                 ElevatedButton(
-                    onPressed: _connectWs, child: const Text('WS connect')),
+                  onPressed: _connectWs,
+                  child: const Text('WS connect'),
+                ),
                 ElevatedButton(
-                    onPressed: _sendWs, child: const Text('WS send')),
+                  onPressed: _sendWs,
+                  child: const Text('WS send'),
+                ),
               ],
             ),
             const Divider(),
             Expanded(
-              child: ListView(
-                  children: _lines.map((l) => Text(l)).toList()),
+              child: ListView(children: _lines.map((l) => Text(l)).toList()),
             ),
           ],
         ),
