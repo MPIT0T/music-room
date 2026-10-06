@@ -85,7 +85,7 @@ jobs:
                elif $approved >= $required then
                  {color: 5763719, status: "Merge possible"}
                else
-                 {color: 16705372, status: "\($required - $approved) review(s) demandée(s)"}
+                 {color: 16705372, status: (($required - $approved) as $n | if $n == 1 then "1 review demandée" else "\($n) reviews demandées" end)}
                end) as $s
             | {
                 allowed_mentions: {parse: []},
