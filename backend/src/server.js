@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import { pool } from './db/pool.js';
-import redis from './redis.js';
-import { socketSetup }  from './socket.js'
+import redis from './utils/redis.js';
+import { socketSetup }  from './utils/socket.js'
 import { serializerCompiler, validatorCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 
 // importer jwt ici
