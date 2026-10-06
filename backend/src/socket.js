@@ -2,11 +2,10 @@ import {Server} from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import redis from './redis.js';
 
-function attachRealtime(httpServer, { verifyToken, canSee }) {
+export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
-  io.adapter(createAdapter(redis.duplicate(), redis.duplicate())); // 2 clients : pub et sub
+  io.adapter(createAdapter(redis.duplicate(), redis.duplicate())); 
 
-  // Le token est vérifié au handshake, avant toute connexion
   io.use(async (socket, next) => {
     try {
       const claims = await verifyToken(socket.handshake.auth?.token);
@@ -19,21 +18,24 @@ function attachRealtime(httpServer, { verifyToken, canSee }) {
   });
 
   io.on('connection', (socket) => {
-    socket.on('subscribe', async ({ roomId }, ack) => {
+    socket.on('subscribe', async ({ roomId }, toEmit) => {
       if (!(await canSee(socket.data.userId, roomId))) {
-        return ack?.({ ok: false, code: 'NOT_FOUND' });
+        return toEmit?.({ ok: false, code: 'NOT_FOUND' });
       }
       socket.join(`room:${roomId}`);
-      ack?.({ ok: true });
+      toEmit?.({ ok: true });
     });
-    socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`));
+    socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
   });
 
+  io.on('close', (socket) => {});
   return io;
 }
 
+function verifyToken(token) {
+  return true;
+}
 
-export function socketSetup(app) {
-    const io = attachRealtime(app.server, { verifyToken, canSee });
-
+function canSee(userId, roomId) {
+  return true;
 }
