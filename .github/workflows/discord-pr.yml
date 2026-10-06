@@ -1,0 +1,128 @@
+name: Discord PR notification
+
+# One Discord message per open PR, edited as the PR evolves and deleted
+# once the PR is closed or merged. The Discord message ID is kept in a
+# hidden marker inside a PR comment so later runs can find it.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, converted_to_draft, synchronize, edited, closed]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  pull-requests: write
+
+# Never run two updates for the same PR at once, otherwise two close
+# events could each post their own Discord message.
+concurrency:
+  group: discord-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sync Discord message
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REQUIRED_APPROVALS: 2
+          MARKER: discord-pr-notify
+        run: |
+          set -euo pipefail
+
+          # Secrets are not exposed to PRs coming from forks.
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "::notice::DISCORD_WEBHOOK_URL is not available, skipping."
+            exit 0
+          fi
+          WEBHOOK="${DISCORD_WEBHOOK_URL%/}"
+
+          # Always read the current PR state instead of trusting the event
+          # payload, so every run converges to the same message.
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+
+          comment=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"<!-- $MARKER:\")))" \
+            | jq -s 'first // empty')
+          [ -n "$comment" ] || comment='{}'
+          comment_id=$(jq -r '.id // empty' <<<"$comment")
+          message_id=$(jq -r '.body // empty' <<<"$comment" | sed -n "s/.*<!-- $MARKER:\([0-9]*\) -->.*/\1/p")
+
+          discord() { # method, url, [body] -> prints HTTP status, response in /tmp/discord.json
+            curl -sS -o /tmp/discord.json -w '%{http_code}' -X "$1" "$2" \
+              -H 'Content-Type: application/json' ${3:+--data "$3"}
+          }
+
+          # Closed, merged or back to draft: remove the message and the marker.
+          if [ "$(jq -r '.state' <<<"$pr")" = "closed" ] || [ "$(jq -r '.draft' <<<"$pr")" = "true" ]; then
+            if [ -n "$message_id" ]; then
+              status=$(discord DELETE "$WEBHOOK/messages/$message_id")
+              echo "Discord delete: HTTP $status"
+            fi
+            if [ -n "$comment_id" ]; then
+              gh api -X DELETE "repos/$REPO/issues/comments/$comment_id"
+            fi
+            exit 0
+          fi
+
+          # Latest decisive review per reviewer. A dismissed approval
+          # becomes DISMISSED and no longer counts.
+          reviews=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" --jq '.[]' \
+            | jq -s '[.[] | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED")]
+                     | group_by(.user.login) | map(max_by(.submitted_at))')
+
+          payload=$(jq -n --argjson pr "$pr" --argjson reviews "$reviews" \
+            --argjson required "$REQUIRED_APPROVALS" '
+            ([$reviews[] | select(.state == "APPROVED")] | length) as $approved
+            | [$reviews[] | select(.state == "CHANGES_REQUESTED") | .user.login] as $blockers
+            | (if ($blockers | length) > 0 then
+                 {color: 15548997, status: "Changements demandés par \($blockers | join(", "))"}
+               elif $approved >= $required then
+                 {color: 5763719, status: "Merge possible"}
+               else
+                 {color: 16705372, status: "\($required - $approved) review(s) demandée(s)"}
+               end) as $s
+            | {
+                allowed_mentions: {parse: []},
+                embeds: [{
+                  title: ("#\($pr.number) \($pr.title)" | .[0:256]),
+                  url: $pr.html_url,
+                  color: $s.color,
+                  fields: [
+                    {name: "Auteur", value: $pr.user.login, inline: true},
+                    {name: "Branches", value: "`\($pr.head.ref)` -> `\($pr.base.ref)`", inline: true},
+                    {name: "Commits", value: "\($pr.commits)", inline: true},
+                    {name: "Diff", value: "+\($pr.additions) / -\($pr.deletions) (\($pr.changed_files) fichiers)", inline: true},
+                    {name: "Approbations", value: "\($approved)/\($required)", inline: true},
+                    {name: "Statut", value: $s.status, inline: false}
+                  ]
+                }]
+              }')
+
+          if [ -n "$message_id" ]; then
+            status=$(discord PATCH "$WEBHOOK/messages/$message_id" "$payload")
+            echo "Discord edit: HTTP $status"
+            case "$status" in
+              2*) exit 0 ;;
+              404) message_id="" ;;  # deleted on Discord or webhook changed: post a new one
+              *) cat /tmp/discord.json; exit 1 ;;
+            esac
+          fi
+
+          status=$(discord POST "$WEBHOOK?wait=true" "$payload")
+          echo "Discord post: HTTP $status"
+          case "$status" in 2*) ;; *) cat /tmp/discord.json; exit 1 ;; esac
+          message_id=$(jq -r '.id' /tmp/discord.json)
+
+          body="Notification Discord active pour cette PR.
+          <!-- $MARKER:$message_id -->"
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
+          fi
