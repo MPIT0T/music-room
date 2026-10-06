@@ -2,8 +2,15 @@ import Fastify from 'fastify';
 import { pool } from './db/pool.js';
 import redis from './redis.js';
 import { socketSetup }  from './socket.js'
+import { serializerCompiler, validatorCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 
-const app = Fastify({ logger: true });
+// importer jwt ici
+
+const app = Fastify({ logger: true }).withTypeProvider();
+
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
+
 const io = socketSetup(app.server);
 
 app.decorate('io', io);
