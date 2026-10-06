@@ -1,5 +1,4 @@
 import mysql from 'mysql2/promise';
-import Redis from 'ioredis';
 
 export const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -13,7 +12,3 @@ export const pool = mysql.createPool({
 });
 
 pool.pool.on('connection', (conn) => conn.query("SET time_zone = '+00:00'"));
-
-export const redis = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: 5,
-});
