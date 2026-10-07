@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { pub, sub } from './redis.js';
+import { pub, sub, closeRedis } from './redis.js';
 
 export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
@@ -33,7 +33,7 @@ export function socketSetup(httpServer) {
     socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
   });
 
-  io.on('close', (socket) => {});
+  io.on('close', () => {});
 
   return io;
 }
@@ -48,10 +48,10 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-function verifyToken(token) {
+function verifyToken() {
   return true;
 }
 
-function canSee(userId, roomId) {
+function canSee() {
   return true;
 }
