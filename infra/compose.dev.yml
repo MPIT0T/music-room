@@ -17,3 +17,6 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+  redis:
+    ports:
+      - "127.0.0.1:16379:6379"
