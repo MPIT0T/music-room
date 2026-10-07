@@ -5,6 +5,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package*.json ./
 RUN npm ci
+RUN apt update && apt install wget -y
 
 FROM deps AS dev
 COPY . .

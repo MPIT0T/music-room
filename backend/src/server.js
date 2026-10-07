@@ -1,17 +1,24 @@
 import Fastify from 'fastify';
-import mysql from 'mysql2/promise';
+import { pool } from './db/pool.js';
+import redis from './utils/redis.js';
+import { socketSetup }  from './utils/socket.js'
+import { serializerCompiler, validatorCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 
-const app = Fastify({ logger: true });
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// importer jwt ici
+
+const app = Fastify({ logger: true }).withTypeProvider();
+
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
+
+const io = socketSetup(app.server);
+
+app.decorate('io', io);
 
 app.get('/health', async () => {
   await pool.query('SELECT 1');
-  return { status: 'ok', db: 'ok' };
+  await redis.ping();
+  return { status: 'ok', db: 'ok', redis: 'ok' };
 });
 
-await app.listen({ port: 3000, host: '0.0.0.0' });
+await app.listen({ port: process.env.PORT ?? 3000, host: '0.0.0.0' });
