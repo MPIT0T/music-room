@@ -21,4 +21,16 @@ app.get('/health', async () => {
   return { status: 'ok', db: 'ok', redis: 'ok' };
 });
 
+app.addHook('preClose', async () => {
+  io.local.disconnectSockets(true);  // coupe les clients avant la fermeture HTTP
+});
+app.addHook('onClose', async () => {
+  await io.close();
+  await closeRedis();
+});
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => app.close());
+}
+
 await app.listen({ port: process.env.PORT ?? 3000, host: '0.0.0.0' });

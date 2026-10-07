@@ -1,10 +1,10 @@
-import {Server} from 'socket.io';
+import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import redis from './redis.js';
+import { pub, sub } from './redis.js';
 
 export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
-  io.adapter(createAdapter(redis.duplicate(), redis.duplicate())); 
+  io.adapter(createAdapter(pub, sub)); 
 
   io.use(async (socket, next) => {
     try {
