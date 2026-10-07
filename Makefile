@@ -65,6 +65,9 @@ test: ## Backend tests
 lint: ## Backend lint
 	$(DEV) run --rm --no-deps api npm run lint
 
+format: ## Formats the backend code (prettier + eslint --fix)
+	cd backend && npm run format
+
 migrate: ## DB migrations (dev)
 	$(DEV) run --rm api npm run migrate
 
