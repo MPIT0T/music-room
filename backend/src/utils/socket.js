@@ -36,7 +36,18 @@ export function socketSetup(httpServer) {
   });
 
   io.on('close', (socket) => {});
+
   return io;
+}
+
+export function handleSocketClosing(app, io) {
+  app.addHook('preClose', async () => {
+    io.local.disconnectSockets(true);
+  });
+  app.addHook('onClose', async () => {
+    await io.close();
+    await closeRedis();
+  });
 }
 
 function verifyToken(token) {
