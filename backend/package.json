@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "test": "node --test",
     "migrate": "node src/db/migrate.js",
-    "lint": "eslint .",
+    "lint": "eslint . && prettier --check .",
     "format": "prettier --write . && eslint . --fix"
   },
   "dependencies": {
