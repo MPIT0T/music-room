@@ -1,17 +1,29 @@
-import Fastify from 'fastify';
-import mysql from 'mysql2/promise';
+import { buildApp } from './app.js';
 
-const app = Fastify({ logger: true });
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+const app = await buildApp();
+const port = Number(process.env.PORT ?? 3000);
 
-app.get('/health', async () => {
-  await pool.query('SELECT 1');
-  return { status: 'ok', db: 'ok' };
-});
+let closing = false;
+async function shutdown(signal) {
+  if (closing) return;
+  closing = true;
+  app.log.info({ signal }, 'shutting down');
+  try {
+    await app.close();
+    process.exit(0);
+  } catch (err) {
+    app.log.error(err, 'error during shutdown');
+    process.exit(1);
+  }
+}
 
-await app.listen({ port: 3000, host: '0.0.0.0' });
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
+try {
+  await app.listen({ port, host: '0.0.0.0' });
+} catch (err) {
+  app.log.error(err);
+  await app.close();
+  process.exit(1);
+}
