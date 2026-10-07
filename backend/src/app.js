@@ -2,11 +2,17 @@ import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
+import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
 
 // importer jwt ici
 
-export async function buildApp({ pool = defaultPool, redis = defaultRedis, logger = true } = {}) {
-  const app = Fastify({ logger }).withTypeProvider();
+export async function buildApp({
+  pool = defaultPool,
+  redis = defaultRedis,
+  logger = loggerOptions(),
+} = {}) {
+  const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
+  registerRequestLogging(app);
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -20,7 +26,8 @@ export async function buildApp({ pool = defaultPool, redis = defaultRedis, logge
     await Promise.allSettled([pool.end(), redis.quit()]);
   });
 
-  app.get('/health', async (req, reply) => {
+  // logLevel warn: the CI and Docker healthchecks poll this route, only failures are worth a line
+  app.get('/health', { logLevel: 'warn' }, async (req, reply) => {
     // allSettled: report every dependency, not just the first one that fails
     const [db, cache] = await Promise.allSettled([pool.query('SELECT 1'), redis.ping()]);
     const body = {
