@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { pub, sub, closeRedis } from './redis.js';
+import { pub, sub } from './redis.js';
 
 export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
