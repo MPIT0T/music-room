@@ -1,5 +1,4 @@
 import { buildApp } from './app.js';
-import redis from './utils/redis.js';
 import { socketSetup }  from './utils/socket.js'
 
 const app = await buildApp();

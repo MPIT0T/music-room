@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import redis from './utils/redis.js';
 import { pool as defaultPool } from './db/pool.js';
 import { serializerCompiler, validatorCompiler, jsonSchemaTransform } from 'fastify-type-provider-zod';
 
@@ -18,8 +19,9 @@ export async function buildApp({ pool = defaultPool, logger = true } = {}) {
   });
 
   app.get('/health', async () => {
-	await app.db.query('SELECT 1');
-	return { status: 'ok', db: 'ok' };
+    await pool.query('SELECT 1');
+    await redis.ping();
+    return { status: 'ok', db: 'ok', redis: 'ok' };
   });
 
   return app;
