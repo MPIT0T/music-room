@@ -1,7 +1,13 @@
 import { buildApp } from './app.js';
+import redis from './utils/redis.js';
+import { socketSetup }  from './utils/socket.js'
 
 const app = await buildApp();
 const port = Number(process.env.PORT ?? 3000);
+
+const io = socketSetup(app.server);
+
+app.decorate('io', io);
 
 let closing = false;
 async function shutdown(signal) {
