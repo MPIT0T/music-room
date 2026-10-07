@@ -22,7 +22,7 @@ async function shutdown(signal) {
   }
 }
 
-handleSocketClosing(app);
+handleSocketClosing(app, io);
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
