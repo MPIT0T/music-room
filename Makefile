@@ -3,8 +3,7 @@ DEV    := $(DC) -f infra/compose.yml -f infra/compose.dev.yml
 PROD   := $(DC) -f infra/compose.yml -f infra/compose.prod.yml
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor install add dev stop logs ps test migrate shell db mobile \
-        clean fclean re prod prod-down prod-logs prod-migrate
+.PHONY: help doctor install add dev stop logs ps test lint migrate shell db mobile clean fclean re prod prod-down prod-logs prod-migrate
 
 help: ## Command list
 	@echo "Usage: make <target>"
@@ -62,6 +61,9 @@ ps: ## Container states
 
 test: ## Backend tests
 	$(DEV) run --rm api npm test
+
+lint: ## Backend lint
+	$(DEV) run --rm --no-deps api npm run lint
 
 migrate: ## DB migrations (dev)
 	$(DEV) run --rm api npm run migrate
