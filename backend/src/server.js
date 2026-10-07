@@ -1,5 +1,5 @@
 import { buildApp } from './app.js';
-import { socketSetup, handleSocketClosing}  from './utils/socket.js'
+import { socketSetup, handleSocketClosing } from './utils/socket.js';
 
 const app = await buildApp();
 const port = Number(process.env.PORT ?? 3000);

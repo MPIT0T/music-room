@@ -1,6 +1,8 @@
 import Redis from 'ioredis';
 
-export const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 5 });
+export const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 5,
+});
 export const pub = redis.duplicate();
 export const sub = redis.duplicate();
 
