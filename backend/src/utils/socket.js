@@ -48,7 +48,6 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-
 function verifyToken() {
   return true;
 }
