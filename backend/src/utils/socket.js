@@ -9,8 +9,10 @@ export function socketSetup(httpServer) {
   io.use(async (socket, next) => {
     try {
       const claims = await verifyToken(socket.handshake.auth?.token);
+
       socket.data.userId = claims.sub;
       socket.data.deviceId = claims.did;
+
       next();
     } catch {
       next(new Error('unauthorized'));
@@ -18,13 +20,18 @@ export function socketSetup(httpServer) {
   });
 
   io.on('connection', (socket) => {
-    socket.on('subscribe', async ({ roomId }, toEmit) => {
+
+    socket.on('subscribe', async ({ roomId }, ack) => {
       if (!(await canSee(socket.data.userId, roomId))) {
-        return toEmit?.({ ok: false, code: 'NOT_FOUND' });
+        return ack?.({ ok: false, code: 'NOT_FOUND' });
       }
+
       socket.join(`room:${roomId}`);
-      toEmit?.({ ok: true });
+
+      ack?.({ ok: true });
+
     });
+
     socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
   });
 
