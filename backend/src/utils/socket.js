@@ -46,9 +46,10 @@ export function handleSocketClosing(app, io) {
   });
   app.addHook('onClose', async () => {
     await io.close();
-    await closeRedis();
+    await Promise.allSettled([pub.quit(), sub.quit()]);
   });
 }
+
 
 function verifyToken(token) {
   return true;
