@@ -1,79 +1,64 @@
-// // Regles d'acces d'une room. Fonctions PURES : pas de base, pas de req/res, pas de Date.now().
-// // Tout ce dont elles ont besoin arrive en parametre -> tests triviaux, et le meme code
-// // servira aux routes REST ET aux evenements Socket.IO.
-// //
-// // Formes des donnees (objets simples) :
-// //   room       = { id, ownerId, visibility: 'public'|'private',
-// //                  voteLicense: 'open'|'invited_only'|'geo_time',
-// //                  geo:    { lat, lng, radiusM } | null,
-// //                  window: { start: Date, end: Date } | null }
-// //   membership = { role: 'owner'|'invited' } | null     (ligne de room_members, ou null)
-// //   ctx        = { now: Date, position: { lat, lng } | null }
-// //                (position envoyee par le client : ATTENTION, il peut mentir)
+// Room access rules. PURE functions: no database, no req/reply, no Date.now().
+// Everything arrives as arguments, so the same code serves REST routes and Socket.IO events
+// and the tests need no setup.
+//
+// Shapes (plain objects, see toRoom in repo.js):
+//   room = { id, ownerId, visibility: 'public'|'private',
+//            accessPolicy: 'everyone'|'invited'|'time_window',
+//            window: { start: Date, end: Date } | null }
+//   role = 'owner' | 'invited' | null      (see roleOf)
+//   ctx  = { now: Date }
 
-// export const DENY = Object.freeze({
-//   NOT_VISIBLE: 'not_visible',
-//   NOT_INVITED: 'not_invited',
-//   POSITION_REQUIRED: 'position_required',
-//   TOO_FAR: 'too_far',
-//   OUTSIDE_TIME_WINDOW: 'outside_time_window',
-//   MISCONFIGURED: 'misconfigured',
-// });
+export const DENY = Object.freeze({
+  NOT_VISIBLE: 'not_visible',
+  NOT_INVITED: 'not_invited',
+  OUTSIDE_TIME_WINDOW: 'outside_time_window',
+  MISCONFIGURED: 'misconfigured',
+});
 
-// // ---------------------------------------------------------------------------
-// // EXEMPLE DEJA IMPLEMENTE (pour donner le style) : qui peut VOIR / trouver la room ?
-// // public  -> tout le monde
-// // private -> uniquement les gens qui ont une ligne dans room_members (owner ou invited)
-// export function canView(room, membership) {
-//   if (room.visibility === 'public') return true;
-//   return membership != null;
-// }
+const ALLOWED = Object.freeze({ allowed: true });
+const deny = (reason) => ({ allowed: false, reason });
 
-// // ---------------------------------------------------------------------------
-// // TODO 1 : la fenetre horaire est-elle respectee ?
-// //   - window === null  -> pas de contrainte -> true
-// //   - intervalle SEMI-OUVERT : start <= now < end  (decision a justifier : pas de
-// //     chevauchement quand deux fenetres s'enchainent, ex 16h-18h puis 18h-20h)
-// //   - indice : comparer des Date avec .getTime()
-// export function isWithinWindow(window, now) {
-//   throw new Error('TODO isWithinWindow');
-// }
+// The owner lives in rooms.owner_id, invited users in room_members
+export function roleOf(room, userId, isInvited) {
+  if (userId != null && room.ownerId === userId) return 'owner';
+  return isInvited ? 'invited' : null;
+}
 
-// // ---------------------------------------------------------------------------
-// // TODO 2 : distance en metres entre deux points GPS (formule de Haversine).
-// //   R = 6_371_000 m
-// //   a = sin²(Δφ/2) + cos φ1 · cos φ2 · sin²(Δλ/2)
-// //   d = 2R · atan2(√a, √(1−a))        avec φ = latitude, λ = longitude, EN RADIANS
-// //   indice : (deg * Math.PI) / 180
-// export function distanceMeters(a, b) {
-//   throw new Error('TODO distanceMeters');
-// }
+// Find, open, see tracks, votes and members. Private rooms answer 404 to everyone else.
+export function canView(room, role) {
+  return room.visibility === 'public' || role != null;
+}
 
-// // ---------------------------------------------------------------------------
-// // TODO 3 : la position est-elle dans le rayon de la room ?
-// //   - geo === null -> pas de contrainte -> true
-// //   - sinon distanceMeters(geo, position) <= geo.radiusM
-// //   - position === null alors que geo est defini -> false
-// export function isWithinRadius(geo, position) {
-//   throw new Error('TODO isWithinRadius');
-// }
+// Settings, invitations, member removal, delete, skip
+export function canManage(room, role) {
+  return role === 'owner';
+}
 
-// // ---------------------------------------------------------------------------
-// // TODO 4 : qui peut VOTER ? Retourne { allowed: true } ou { allowed: false, reason: DENY.xxx }
-// // Le `reason` permet a l'API de renvoyer un 403 explicite ("trop loin", "hors horaire"...).
-// //
-// // Ordre des verifications :
-// //   1. !canView(room, membership)           -> NOT_VISIBLE   (jamais voter sur une room qu'on ne voit pas,
-// //                                                              meme avec la licence 'open')
-// //   2. voteLicense === 'open'               -> allowed
-// //   3. voteLicense === 'invited_only'       -> allowed si membership != null, sinon NOT_INVITED
-// //   4. voteLicense === 'geo_time'           -> voir ci-dessous
-// //        - room.geo ET room.window tous les deux null -> MISCONFIGURED
-// //          (on REFUSE par defaut : une room mal configuree ne doit jamais s'ouvrir a tout le monde)
-// //        - geo defini mais ctx.position null -> POSITION_REQUIRED
-// //        - hors rayon   -> TOO_FAR
-// //        - hors horaire -> OUTSIDE_TIME_WINDOW
-// //   5. licence inconnue -> MISCONFIGURED
-// export function canVote(room, membership, ctx) {
-//   throw new Error('TODO canVote');
-// }
+// Half-open interval start <= now < end: back-to-back windows (16h-18h then 18h-20h) never overlap
+export function isWithinWindow(window, now) {
+  if (window == null) return true;
+  const t = now.getTime();
+  return window.start.getTime() <= t && t < window.end.getTime();
+}
+
+// Vote and suggest a track. Returns { allowed: true } or { allowed: false, reason: DENY.* }
+// so the API can answer an explicit 403 ("not invited", "outside the time window").
+// time_window: anyone who can see the room, inside the time window. The owner is never restricted.
+export function canVote(room, role, ctx) {
+  if (!canView(room, role)) return deny(DENY.NOT_VISIBLE);
+  if (role === 'owner') return ALLOWED;
+
+  switch (room.accessPolicy) {
+    case 'everyone':
+      return ALLOWED;
+    case 'invited':
+      return role === 'invited' ? ALLOWED : deny(DENY.NOT_INVITED);
+    case 'time_window':
+      if (room.window == null) return deny(DENY.MISCONFIGURED);
+      if (!isWithinWindow(room.window, ctx.now)) return deny(DENY.OUTSIDE_TIME_WINDOW);
+      return ALLOWED;
+    default:
+      return deny(DENY.MISCONFIGURED);
+  }
+}
