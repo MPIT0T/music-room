@@ -66,7 +66,6 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-<<<<<<< HEAD
 // TODO: remplacer par la vraie verification JWT (JWT_SECRET) quand l'auth sera en place.
 // Stub dev : le token sert directement d'userId, pour simuler plusieurs users depuis le front de test.
 async function verifyToken(token) {
@@ -74,11 +73,6 @@ async function verifyToken(token) {
     throw new Error('missing token');
   }
   return { sub: token.trim(), did: 'dev' };
-=======
-
-function verifyToken(token) {
-  return true;
->>>>>>> 000379b (socket: pass io to handleSocketClosing, close only pub/sub)
 }
 
 function canSee(userId, roomId) {
