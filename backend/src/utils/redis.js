@@ -2,7 +2,10 @@ import Redis from 'ioredis';
 
 // lazyConnect: importing this module must not open sockets (tests would hang);
 // each client connects on its first command.
-export const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 5, lazyConnect: true });
+export const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: 5,
+  lazyConnect: true,
+});
 export const pub = redis.duplicate();
 export const sub = redis.duplicate();
 

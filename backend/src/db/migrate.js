@@ -12,9 +12,7 @@ const conn = await mysql.createConnection({
   multipleStatements: true,
 });
 
-const [[{ locked }]] = await conn.query(
-  "SELECT GET_LOCK('migrations', 10) AS locked",
-);
+const [[{ locked }]] = await conn.query("SELECT GET_LOCK('migrations', 10) AS locked");
 if (locked !== 1) throw new Error('could not get the migrations lock');
 
 await conn.query(`

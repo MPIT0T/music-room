@@ -1,15 +1,8 @@
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { pool as defaultPool } from './db/pool.js';
-<<<<<<< HEAD
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
-=======
-import {
-  serializerCompiler,
-  validatorCompiler,
-} from 'fastify-type-provider-zod';
->>>>>>> f330dc5 (Fix lint errors, import closeRedis in socket.js)
 
 // importer jwt ici
 
