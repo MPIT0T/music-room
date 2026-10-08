@@ -4,7 +4,7 @@ class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
 
   @override
-  build(BuildContext context) {
-    return Scaffold(body: Center(child: Text("Friends")));
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text("Friends")));
   }
 }

@@ -4,7 +4,7 @@ class MyRoomsScreen extends StatelessWidget {
   const MyRoomsScreen({super.key});
 
   @override
-  build(BuildContext context) {
-    return Scaffold(body: Center(child: Text("MyRooms")));
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text("MyRooms")));
   }
 }

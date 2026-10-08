@@ -4,7 +4,7 @@ class UserProfileScreen extends StatelessWidget {
   const UserProfileScreen({super.key});
 
   @override
-  build(BuildContext context) {
-    return Scaffold(body: Center(child: Text("UserProfile")));
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text("UserProfile")));
   }
 }

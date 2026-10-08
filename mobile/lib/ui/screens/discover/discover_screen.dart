@@ -4,7 +4,7 @@ class DiscoverScreen extends StatelessWidget {
   const DiscoverScreen({super.key});
 
   @override
-  build(BuildContext context) {
-    return Scaffold(body: Center(child: Text("Discover")));
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text("Discover")));
   }
 }

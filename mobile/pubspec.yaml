@@ -100,9 +100,9 @@ flutter:
         - asset: assets/fonts/Inter/static/Inter_18pt-SemiBold.ttf
           weight: 600
 
-    - family: Space Grotesk
+    - family: SpaceGrotesk
       fonts:
-        - asset: assets/fonts/Space_Grotesk/static/SpaceGrotesk-Bold.ttf
-          weight: 600
         - asset: assets/fonts/Space_Grotesk/static/SpaceGrotesk-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Space_Grotesk/static/SpaceGrotesk-Bold.ttf
           weight: 700

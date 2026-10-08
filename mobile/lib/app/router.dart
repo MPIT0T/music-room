@@ -39,11 +39,12 @@ abstract final class AppRouterConfig {
                   GoRoute(
                     path: '/friends',
                     builder: (context, state) => const FriendsScreen(),
-                  ),
-                  GoRoute(
-                    path: '/:userId',
-                    builder: (context, state) => const UserProfileScreen(),
-                    // userId: state.pathParameters['userId']!,
+                    routes: [
+                      GoRoute(
+                        path: '/:userId',
+                        builder: (context, state) => const UserProfileScreen(),
+                      ),
+                    ],
                   ),
                 ],
               ),

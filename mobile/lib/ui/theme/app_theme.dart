@@ -120,13 +120,17 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radius.control)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radi.control),
+        ),
       ),
     ),
     cardTheme: CardThemeData(
       color: scheme.surface,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radius.card)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radi.card),
+      ),
     ),
   );
 }

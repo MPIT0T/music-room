@@ -12,7 +12,7 @@ abstract final class Space {
   static const double section = xl;
 }
 
-abstract final class Radius {
+abstract final class Radi {
   static const double control = 8;
   static const double card = 12;
 }
