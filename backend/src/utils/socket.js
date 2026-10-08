@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { pub, sub } from './redis.js';
+import { pub, sub, closeRedis } from './redis.js';
 
 export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
@@ -14,8 +14,10 @@ export function socketSetup(httpServer) {
       socket.data.deviceId = claims.did;
 
       next();
-    } catch {
-      next(new Error('unauthorized'));
+    } catch (err) {
+      const e = new Error('unauthorized');
+      e.data = { reason: err.message };
+      next(e);
     }
   });
 
@@ -32,7 +34,21 @@ export function socketSetup(httpServer) {
 
     });
 
-    socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
+    socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`));
+
+    socket.on('message', ({ roomId, text } = {}, ack) => {
+      const room = `room:${roomId}`;
+      if (!socket.rooms.has(room)) {
+        return ack?.({ ok: false, code: 'NOT_SUBSCRIBED' });
+      }
+      io.to(room).emit('message', {
+        roomId,
+        from: socket.data.userId,
+        text: `msg from server: ${String(text ?? '')}`,
+        at: Date.now(),
+      });
+      ack?.({ ok: true });
+    });
   });
 
   io.on('close', (socket) => {});
@@ -50,8 +66,13 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-function verifyToken(token) {
-  return true;
+// TODO: remplacer par la vraie verification JWT (JWT_SECRET) quand l'auth sera en place.
+// Stub dev : le token sert directement d'userId, pour simuler plusieurs users depuis le front de test.
+async function verifyToken(token) {
+  if (typeof token !== 'string' || token.trim() === '') {
+    throw new Error('missing token');
+  }
+  return { sub: token.trim(), did: 'dev' };
 }
 
 function canSee(userId, roomId) {
