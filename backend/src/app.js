@@ -6,13 +6,14 @@ import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
 import { readGoogleConfig } from './config.js';
 
-// importer jwt ici
+import { createTokenService } from './auth/tokens.js';
 
 export async function buildApp({
   pool = defaultPool,
   redis = defaultRedis,
   logger = loggerOptions(),
   google = readGoogleConfig(),
+  tokens = createTokenService(),
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
@@ -21,10 +22,11 @@ export async function buildApp({
   app.setSerializerCompiler(serializerCompiler);
   registerProblemHandlers(app);
 
-  // Shared clients and config, available everywhere as app.db / app.redis / app.google
+  // Shared clients and config, available everywhere as app.db / app.redis / app.google / app.tokens
   app.decorate('db', pool);
   app.decorate('redis', redis);
   app.decorate('google', google);
+  app.decorate('tokens', tokens);
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
