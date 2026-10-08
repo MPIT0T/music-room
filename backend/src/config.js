@@ -22,3 +22,36 @@ export function readGoogleConfig(env = process.env) {
     audiences: [web, android].filter(Boolean),
   };
 }
+
+const blank = (v) => (v === '' ? undefined : v);
+
+// Defaults match compose: Mailpit in dev, real SMTP values come from .env in prod
+const mailEnv = z.object({
+  SMTP_HOST: z.preprocess(blank, z.string().default('mailpit')),
+  SMTP_PORT: z.preprocess(blank, z.coerce.number().int().min(1).max(65535).default(1025)),
+  SMTP_USER: z.preprocess(blank, z.string().optional()),
+  SMTP_PASSWORD: z.preprocess(blank, z.string().optional()),
+  MAIL_FROM: z.preprocess(blank, z.email().default('no-reply@musicroom.local')),
+  APP_BASE_URL: z.preprocess(
+    blank,
+    z.url({ protocol: /^https?$/ }).default('http://localhost:3000'),
+  ),
+  NODE_ENV: z.string().optional(),
+});
+
+export function readMailConfig(env = process.env) {
+  const e = mailEnv.parse(env);
+  return {
+    from: e.MAIL_FROM,
+    // Links in emails are built from this value only, never from the request Host header
+    appBaseUrl: e.APP_BASE_URL.replace(/\/+$/, ''),
+    smtp: {
+      host: e.SMTP_HOST,
+      port: e.SMTP_PORT,
+      // 465 is TLS from the start; elsewhere production must upgrade with STARTTLS or refuse to send
+      secure: e.SMTP_PORT === 465,
+      requireTLS: e.NODE_ENV === 'production' && e.SMTP_PORT !== 465,
+      auth: e.SMTP_USER ? { user: e.SMTP_USER, pass: e.SMTP_PASSWORD } : undefined,
+    },
+  };
+}
