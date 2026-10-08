@@ -30,6 +30,7 @@ help: ## Command list
 
 .env:
 	cp .env.example .env
+	sed -i.bak "s/^JWT_SECRET=.*/JWT_SECRET=$$(openssl rand -hex 32)/" .env && rm .env.bak
 	@echo ".env created from .env.example : please fill in the secrets."
 
 doctor: ## Checks the requirements (docker, node 22, npm, flutter, make)
