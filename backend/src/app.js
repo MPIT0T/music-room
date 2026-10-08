@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
@@ -18,6 +19,7 @@ export async function buildApp({
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  registerProblemHandlers(app);
 
   // Shared clients and config, available everywhere as app.db / app.redis / app.google
   app.decorate('db', pool);
