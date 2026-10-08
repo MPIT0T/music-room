@@ -14,8 +14,6 @@ export function toRoom(row) {
   };
 }
 
-// The room plus whether userId is invited (has a room_members row), in one query.
-// Returns null when the room does not exist.
 export async function findRoomForUser(db, roomId, userId) {
   const [rows] = await db.query(
     `SELECT r.*, (rm.user_id IS NOT NULL) AS is_invited

@@ -49,8 +49,6 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-// Joins `room:<id>` only if the user can see the room. Unknown, private and malformed ids
-// all get the same NOT_FOUND, like the REST routes' 404.
 export function subscribeHandler(socket, db, log) {
   return async (payload, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};
