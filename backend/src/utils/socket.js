@@ -2,24 +2,31 @@ import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { pub, sub } from './redis.js';
 
-export function socketSetup(httpServer) {
+export function authenticateSocket(tokens, log) {
+  return async (socket, next) => {
+    try {
+      const { userId, deviceId } = await tokens.verifyAccessToken(socket.handshake.auth?.token);
+      socket.data.userId = userId;
+      socket.data.deviceId = deviceId;
+      next();
+    } catch (err) {
+      log?.debug({ reason: err.message }, 'socket handshake rejected');
+      // Same answer whatever the reason: the client only needs to know it must refresh
+      next(new Error('unauthorized'));
+    }
+  };
+}
+
+export function socketSetup(httpServer, { tokens, log }) {
   const io = new Server(httpServer, { cors: { origin: false } });
   io.adapter(createAdapter(pub, sub));
 
-  io.use(async (socket, next) => {
-    try {
-      const claims = await verifyToken(socket.handshake.auth?.token);
-
-      socket.data.userId = claims.sub;
-      socket.data.deviceId = claims.did;
-
-      next();
-    } catch {
-      next(new Error('unauthorized'));
-    }
-  });
+  io.use(authenticateSocket(tokens, log));
 
   io.on('connection', (socket) => {
+    // Lets logout and password reset disconnect one device or all of a user's devices, on every instance
+    socket.join([`user:${socket.data.userId}`, `device:${socket.data.deviceId}`]);
+
     socket.on('subscribe', async ({ roomId }, ack) => {
       if (!(await canSee(socket.data.userId, roomId))) {
         return ack?.({ ok: false, code: 'NOT_FOUND' });
@@ -46,10 +53,6 @@ export function handleSocketClosing(app, io) {
     await io.close();
     await Promise.allSettled([pub.quit(), sub.quit()]);
   });
-}
-
-function verifyToken() {
-  return true;
 }
 
 function canSee() {

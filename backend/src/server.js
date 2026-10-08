@@ -4,7 +4,7 @@ import { socketSetup, handleSocketClosing } from './utils/socket.js';
 const app = await buildApp();
 const port = Number(process.env.PORT ?? 3000);
 
-const io = socketSetup(app.server);
+const io = socketSetup(app.server, { tokens: app.tokens, log: app.log });
 
 app.decorate('io', io);
 
