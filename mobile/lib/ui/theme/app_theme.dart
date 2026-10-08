@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:music_room/ui/theme/tokens.dart';
 
 class AppPalette {
   static const darkBg = Color(0xFF0E0E12);
@@ -68,37 +69,37 @@ class StatusColors extends ThemeExtension<StatusColors> {
 const _textTheme = TextTheme(
   displaySmall: TextStyle(
     fontFamily: 'SpaceGrotesk',
-    fontSize: 32,
+    fontSize: Space.xxl,
     height: 38 / 32,
     fontWeight: FontWeight.w700,
   ),
   titleLarge: TextStyle(
     fontFamily: 'SpaceGrotesk',
-    fontSize: 24,
+    fontSize: Space.xl,
     height: 30 / 24,
     fontWeight: FontWeight.w600,
   ),
   titleMedium: TextStyle(
     fontFamily: 'Inter',
-    fontSize: 18,
+    fontSize: Space.lg,
     height: 24 / 18,
     fontWeight: FontWeight.w600,
   ),
   bodyLarge: TextStyle(
     fontFamily: 'Inter',
-    fontSize: 16,
+    fontSize: Space.lg,
     height: 22 / 16,
     fontWeight: FontWeight.w400,
   ),
   labelLarge: TextStyle(
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: Space.md,
     height: 20 / 14,
     fontWeight: FontWeight.w500,
   ),
   bodySmall: TextStyle(
     fontFamily: 'Inter',
-    fontSize: 12,
+    fontSize: Space.md,
     height: 16 / 12,
     fontWeight: FontWeight.w500,
   ),
@@ -119,13 +120,13 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radius.control)),
       ),
     ),
     cardTheme: CardThemeData(
       color: scheme.surface,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radius.card)),
     ),
   );
 }
