@@ -6,6 +6,13 @@ const RETRYABLE = new Set([
   1020, // ER_CHECKREAD: row changed since our snapshot (innodb_snapshot_isolation)
 ]);
 
+/**
+ * Runs fn(conn) in a transaction and returns its result.
+ * fn may run several times (retry on deadlock), so it must:
+ * - use conn, never the pool
+ * - have no side effect outside the database (emit, Redis, HTTP): do them after this returns
+ * - never swallow SQL errors
+ */
 export async function withTransaction(pool, fn, { attempts = 3, backoffMs = 20 } = {}) {
   for (let attempt = 1; ; attempt++) {
     try {
