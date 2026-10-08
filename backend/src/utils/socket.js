@@ -4,7 +4,7 @@ import { pub, sub } from './redis.js';
 
 export function socketSetup(httpServer) {
   const io = new Server(httpServer, { cors: { origin: false } });
-  io.adapter(createAdapter(pub, sub)); 
+  io.adapter(createAdapter(pub, sub));
 
   io.use(async (socket, next) => {
     try {
@@ -20,7 +20,6 @@ export function socketSetup(httpServer) {
   });
 
   io.on('connection', (socket) => {
-
     socket.on('subscribe', async ({ roomId }, ack) => {
       if (!(await canSee(socket.data.userId, roomId))) {
         return ack?.({ ok: false, code: 'NOT_FOUND' });
@@ -29,13 +28,12 @@ export function socketSetup(httpServer) {
       socket.join(`room:${roomId}`);
 
       ack?.({ ok: true });
-
     });
 
     socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
   });
 
-  io.on('close', (socket) => {});
+  io.on('close', () => {});
 
   return io;
 }
@@ -50,11 +48,10 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-
-function verifyToken(token) {
+function verifyToken() {
   return true;
 }
 
-function canSee(userId, roomId) {
+function canSee() {
   return true;
 }
