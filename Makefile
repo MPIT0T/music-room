@@ -3,8 +3,7 @@ DEV    := $(DC) -f infra/compose.yml -f infra/compose.dev.yml
 PROD   := $(DC) -f infra/compose.yml -f infra/compose.prod.yml
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor install add dev stop logs ps test migrate shell db mobile \
-        clean fclean re prod prod-down prod-logs prod-migrate
+.PHONY: help doctor install add dev stop logs ps test lint format migrate shell db mobile clean fclean re prod prod-down prod-logs prod-migrate
 
 help: ## Command list
 	@echo "Usage: make <target>"
@@ -31,6 +30,7 @@ help: ## Command list
 
 .env:
 	cp .env.example .env
+	sed -i.bak "s/^JWT_SECRET=.*/JWT_SECRET=$$(openssl rand -hex 32)/" .env && rm .env.bak
 	@echo ".env created from .env.example : please fill in the secrets."
 
 doctor: ## Checks the requirements (docker, node 22, npm, flutter, make)
@@ -62,6 +62,12 @@ ps: ## Container states
 
 test: ## Backend tests
 	$(DEV) run --rm api npm test
+
+lint: ## Backend lint
+	$(DEV) run --rm --no-deps api npm run lint
+
+format: ## Formats the backend code (prettier + eslint --fix)
+	cd backend && npm run format
 
 migrate: ## DB migrations (dev)
 	$(DEV) run --rm api npm run migrate
