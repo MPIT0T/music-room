@@ -49,7 +49,7 @@ export function socketSetup(httpServer) {
     });
   });
 
-  io.on('close', (socket) => {});
+  io.on('close', () => {});
 
   return io;
 }
@@ -73,6 +73,6 @@ async function verifyToken(token) {
   return { sub: token.trim(), did: 'dev' };
 }
 
-function canSee(userId, roomId) {
+function canSee() {
   return true;
 }
