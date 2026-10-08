@@ -125,12 +125,30 @@ ThemeData buildAppTheme(Brightness brightness) {
         ),
       ),
     ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: .circular(Radi.control)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: .circular(Radi.control)),
+      ),
+    ),
     cardTheme: CardThemeData(
       color: scheme.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radi.card),
       ),
+    ),
+    inputDecorationTheme: InputDecorationThemeData(
+      labelStyle: _textTheme.bodyLarge,
+      border: OutlineInputBorder(borderRadius: .circular(Radi.control)),
+      focusedBorder: OutlineInputBorder(borderRadius: .circular(Radi.control)),
+      errorBorder: OutlineInputBorder(borderRadius: .circular(Radi.control)),
     ),
   );
 }
