@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { pub, sub } from './redis.js';
+import { loadVisibleRoom } from '../rooms/guards.js';
 
 export function authenticateSocket(tokens, log) {
   return async (socket, next) => {
@@ -17,7 +18,7 @@ export function authenticateSocket(tokens, log) {
   };
 }
 
-export function socketSetup(httpServer, { tokens, log }) {
+export function socketSetup(httpServer, { tokens, db, log }) {
   const io = new Server(httpServer, { cors: { origin: false } });
   io.adapter(createAdapter(pub, sub));
 
@@ -27,17 +28,10 @@ export function socketSetup(httpServer, { tokens, log }) {
     // Lets logout and password reset disconnect one device or all of a user's devices, on every instance
     socket.join([`user:${socket.data.userId}`, `device:${socket.data.deviceId}`]);
 
-    socket.on('subscribe', async ({ roomId }, ack) => {
-      if (!(await canSee(socket.data.userId, roomId))) {
-        return ack?.({ ok: false, code: 'NOT_FOUND' });
-      }
-
-      socket.join(`room:${roomId}`);
-
-      ack?.({ ok: true });
+    socket.on('subscribe', subscribeHandler(socket, db, log));
+    socket.on('unsubscribe', (payload) => {
+      if (typeof payload?.roomId === 'string') socket.leave(`room:${payload.roomId}`);
     });
-
-    socket.on('unsubscribe', ({ roomId }) => socket.leave(`room:${roomId}`)); // temporaire roomId etc a decider
   });
 
   io.on('close', () => {});
@@ -55,6 +49,17 @@ export function handleSocketClosing(app, io) {
   });
 }
 
-function canSee() {
-  return true;
+export function subscribeHandler(socket, db, log) {
+  return async (payload, ack) => {
+    const reply = typeof ack === 'function' ? ack : () => {};
+    try {
+      const visible = await loadVisibleRoom(db, payload?.roomId, socket.data.userId);
+      if (visible == null) return reply({ ok: false, code: 'NOT_FOUND' });
+      socket.join(`room:${visible.room.id}`);
+      reply({ ok: true, version: visible.room.version });
+    } catch (err) {
+      log?.error({ err, roomId: payload?.roomId }, 'socket subscribe failed');
+      reply({ ok: false, code: 'INTERNAL' });
+    }
+  };
 }
