@@ -1,4 +1,5 @@
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
+import { dbErrorProblem } from './db/errors.js';
 
 // Thrown by routes for expected failures; the handler turns it into problem+json
 export class HttpProblem extends Error {
@@ -58,6 +59,10 @@ export function registerProblemHandlers(app) {
       if (err.headers) reply.headers(err.headers);
       return sendProblem(request, reply, err);
     }
+
+    // Duplicate key, row still referenced, missing referenced row : code 4xx, not a bug
+    const dbProblem = dbErrorProblem(err);
+    if (dbProblem) return sendProblem(request, reply, dbProblem);
 
     const status = err.statusCode;
     if (status >= 400 && status < 500) {

@@ -1,6 +1,8 @@
-# Contrat d'API : authentification (v1)
+# Contrat d'API : authentification (v1.1)
 
 Statut : **proposition, phase 1**. Toute modification de ce contrat passe par une PR.
+
+v1.1 : `User-Agent` normalisé, limite sur le renvoi d'email, profil (`/v1/me`), changement de mot de passe, liaison Google, appareils.
 
 Base URL : `APP_BASE_URL` (dev : `http://localhost:3000`). Toutes les routes sont préfixées par `/v1`.
 
@@ -12,11 +14,11 @@ Base URL : `APP_BASE_URL` (dev : `http://localhost:3000`). Toutes les routes son
 |---|---|---|---|
 | `Content-Type` | oui si corps | `application/json` | |
 | `Authorization` | routes protégées | `Bearer <accessToken>` | identifie l'utilisateur |
-| `X-Platform` | recommandé | `android`, `ios`, `web` | logs uniquement |
-| `X-Device` | recommandé | `Pixel 7` | logs uniquement |
-| `X-App-Version` | recommandé | `1.2.0` | logs uniquement |
+| `User-Agent` | recommandé | `MusicRoom/1.2.0 (android; Pixel 7)` | logs uniquement |
 
-Les en-têtes `X-*` servent au diagnostic (tronqués à 64 caractères), jamais à une décision de sécurité.
+Format du `User-Agent` : `MusicRoom/<version> (<plateforme>; <modèle>)`, avec `<plateforme>` parmi `android`, `ios`, `web`. Le serveur en extrait la plateforme, le modèle et la version pour les logs (tronqués à 64 caractères, `unknown` si absents ou hors format). Ces valeurs servent au diagnostic, jamais à une décision de sécurité.
+
+Sur Flutter web, le navigateur interdit de modifier `User-Agent` : les logs indiqueront `unknown`. Ce n'est pas bloquant.
 
 Chaque réponse contient `X-Request-Id` (UUID généré par le serveur). L'app l'affiche dans les rapports de bug : il permet de retrouver la requête dans les logs. Un `X-Request-Id` envoyé par le client est ignoré.
 
@@ -167,7 +169,13 @@ Un `POST` (et non un `GET` sur le lien) évite que les antivirus de messagerie, 
 { "email": "max@example.com" }
 ```
 
-**Réponse `202`**, toujours (même raison que l'inscription). Renvoie un email seulement si le compte existe et n'est pas vérifié. L'ancien lien est invalidé.
+**Réponse `202`** (même raison que l'inscription). Renvoie un email seulement si le compte existe et n'est pas vérifié. L'ancien lien est invalidé.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 429 | `rate_limited` | plus d'une demande par minute pour cet email ; attendre `Retry-After` secondes |
+
+La limite est comptée **par email normalisé, que le compte existe ou non**. Sinon, recevoir un `429` sur un email et un `202` sur un autre révélerait lequel a un compte.
 
 ## `POST /v1/sessions` : connexion email / mot de passe
 
@@ -240,7 +248,7 @@ Pas d'en-tête `Authorization` (l'access token est peut-être expiré).
 
 `Authorization: Bearer <accessToken>`, pas de corps.
 
-**Réponse `204`.** Le refresh token de cet appareil est révoqué ; l'access token reste valide jusqu'à son expiration (≤ 15 min). L'app supprime les deux tokens.
+**Réponse `204`.** Le refresh token de cet appareil est révoqué (`refresh_hash`, `previous_refresh_hash` et `refresh_expires_at` vidés) et ses sockets sont fermés. **La ligne `devices` est conservée** : `control_delegations` est en `ON DELETE CASCADE` sur `devices`, la supprimer effacerait les délégations de contrôle de l'appareil. L'access token reste valide jusqu'à son expiration (≤ 15 min). L'app supprime les deux tokens.
 
 ## `POST /v1/password-resets` : demander une réinitialisation
 
@@ -274,6 +282,185 @@ L'app renvoie vers l'écran de connexion.
 
 ---
 
+## Profil et compte (v1.1)
+
+Toutes ces routes demandent `Authorization: Bearer <accessToken>`.
+
+### Objet `me` (mon profil complet)
+
+```json
+{
+  "id": "0192f3a4-7b1c-7d2e-9f00-1a2b3c4d5e6f",
+  "emailVerified": true,
+  "plan": "free",
+  "providers": ["password", "google"],
+  "public": {
+    "displayName": "Max",
+    "avatarUrl": null,
+    "bio": "Fan de jazz",
+    "genres": [{ "id": 3, "name": "Jazz" }]
+  },
+  "friends": { "city": "Paris", "phone": null },
+  "private": { "realName": "Maximilien B.", "birthDate": "1999-04-12", "email": "max@example.com" }
+}
+```
+
+Les trois groupes suivent l'exigence ACC-8 (« Who sees what ») et fixent ce que verra un autre utilisateur sur ma page de profil (contrat v1.2, avec les amis et la recherche) :
+
+| Groupe | Champs | Visible par |
+|---|---|---|
+| `public` | `displayName`, `avatarUrl`, `bio`, `genres` | tout utilisateur connecté |
+| `friends` | `city`, `phone` | mes amis acceptés |
+| `private` | `realName`, `birthDate`, `email` | moi seul |
+
+Le groupe d'un champ n'est pas modifiable.
+
+### `GET /v1/me`
+
+**Réponse `200`** : objet `me`.
+
+### `PATCH /v1/me`
+
+Corps : uniquement les champs à modifier. `null` efface un champ facultatif.
+
+```json
+{ "displayName": "Max", "bio": "Fan de jazz", "city": "Paris", "genreIds": [3, 7] }
+```
+
+| Champ | Contraintes |
+|---|---|
+| `displayName` | 1–50 caractères, ne peut pas être `null` |
+| `bio` | ≤ 500 caractères |
+| `city` | ≤ 100 caractères |
+| `realName` | ≤ 100 caractères |
+| `phone` | ≤ 30 caractères |
+| `birthDate` | `AAAA-MM-JJ`, dans le passé |
+| `genreIds` | ≤ 20 ids existants ; remplace la liste entière |
+
+`email` et `avatarUrl` ne sont pas modifiables en v1.1 : changer d'email demande un nouveau flux de vérification, et l'avatar demandera un upload (une URL libre permettrait de faire charger n'importe quelle adresse par les autres utilisateurs).
+
+**Réponse `200`** : objet `me` à jour.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 400 | `validation_failed` | champ hors contraintes, champ inconnu |
+| 400 | `unknown_genre` | un id de `genreIds` n'existe pas |
+
+### `DELETE /v1/me` : supprimer mon compte
+
+L'access token seul ne suffit pas : on redemande une preuve d'identité, pour qu'un token volé ne permette pas de supprimer le compte.
+
+```json
+{ "password": "correct horse battery" }
+```
+
+ou, pour un compte sans mot de passe :
+
+```json
+{ "provider": "google", "idToken": "eyJhbGciOiJSUzI1NiIs..." }
+```
+
+**Réponse `204`.** Le compte et toutes ses données (sessions, appareils et leurs délégations, liaisons Google, amis, genres, votes) sont supprimés, ainsi que **les rooms qu'il possède** (exigence ACC-10, pas de transfert de propriété). Tous les sockets de l'utilisateur sont fermés.
+
+> **Dépendance schéma** : la clé étrangère `fk_rooms_owner` (`rooms.owner_id`) n'a pas de `ON DELETE` ; tant qu'elle n'est pas en `ON DELETE CASCADE` (demandé à Mathis), la suppression d'un utilisateur qui possède une room échoue. Cette route ne sera livrée qu'après cette migration.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 401 | `invalid_credentials` | mauvais mot de passe |
+| 401 | `invalid_oauth_token` | ID token invalide, ou d'un autre compte Google que celui lié |
+| 429 | `rate_limited` | 5 échecs / 15 min par utilisateur |
+
+### `PUT /v1/me/password` : changer de mot de passe
+
+```json
+{ "currentPassword": "correct horse battery", "newPassword": "another long passphrase" }
+```
+
+**Réponse `204`.** Toutes les **autres** sessions sont révoquées ; celle de cet appareil reste valide.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 400 | `validation_failed` | `newPassword` hors règles |
+| 401 | `invalid_credentials` | `currentPassword` incorrect |
+| 409 | `no_password` | compte sans mot de passe (Google uniquement) : en définir un via `POST /v1/password-resets`, qui prouve la possession de l'email |
+| 429 | `rate_limited` | 5 échecs / 15 min par utilisateur |
+
+### `PUT /v1/me/oauth/google` : lier un compte Google
+
+```json
+{ "idToken": "eyJhbGciOiJSUzI1NiIs..." }
+```
+
+L'ID token est vérifié comme pour `POST /v1/sessions/oauth`. L'email du compte Google peut être différent de celui du compte Music Room.
+
+**Réponse `200`** : objet `me` (`providers` contient `google`). Idempotent : renvoyer le même compte Google déjà lié répond aussi `200`.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 401 | `invalid_oauth_token` | signature, expiration ou audience invalide |
+| 409 | `already_linked` | un **autre** compte Google est déjà lié à ce compte : le délier d'abord |
+| 409 | `oauth_account_in_use` | ce compte Google est lié à un autre utilisateur |
+
+### `DELETE /v1/me/oauth/google` : délier Google
+
+**Réponse `200`** : objet `me`.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 404 | `not_linked` | aucun compte Google lié |
+| 409 | `last_login_method` | le compte n'a pas de mot de passe : délier l'empêcherait de se reconnecter. Définir d'abord un mot de passe via `POST /v1/password-resets` |
+
+---
+
+## Appareils (v1.1)
+
+Un appareil = une session (voir « Tokens »). Routes protégées par `Authorization: Bearer <accessToken>`.
+
+### Objet `device` (renvoyé par l'API)
+
+```json
+{
+  "id": "0192f3a4-0000-7000-8000-00000000000d",
+  "name": "Pixel de Max",
+  "platform": "android",
+  "model": "Pixel 7",
+  "appVersion": "1.2.0",
+  "signedIn": true,
+  "lastSeenAt": "2026-10-08T14:03:00.000Z",
+  "createdAt": "2026-10-01T09:12:00.000Z",
+  "current": true
+}
+```
+
+`current` vaut `true` pour l'appareil qui fait la requête (claim `did` de l'access token). `signedIn` vaut `false` après une déconnexion (`DELETE /v1/sessions/current`) : l'appareil reste listé tant que sa ligne existe. Les dates sont en UTC (ISO 8601).
+
+### `GET /v1/me/devices`
+
+**Réponse `200`** : `{ "devices": [ ...objets device ] }`, du plus récemment vu au plus ancien.
+
+### `PATCH /v1/me/devices/:id` : renommer
+
+```json
+{ "name": "Téléphone perso" }
+```
+
+**Réponse `200`** : objet `device`.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 400 | `validation_failed` | `name` vide ou > 100 caractères |
+| 404 | `device_not_found` | appareil inconnu **ou appartenant à un autre utilisateur** (même réponse, pour ne pas révéler les ids des autres) |
+
+### `DELETE /v1/me/devices/:id` : déconnecter un appareil
+
+**Réponse `204`.** La ligne `devices` est **supprimée**, avec ses délégations de contrôle (`control_delegations`, en cascade), et ses sockets sont fermés. C'est la seule route qui supprime un appareil. Sur l'appareil courant, l'app supprime ensuite ses tokens.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 404 | `device_not_found` | même règle que ci-dessus |
+
+---
+
 ## Socket.IO
 
 Connexion avec l'access token dans le handshake :
@@ -287,7 +474,7 @@ io(APP_BASE_URL, { auth: { token: accessToken } });
 | token valide | connexion acceptée ; `socket.data.userId` = `sub`, `socket.data.deviceId` = `did` |
 | token absent, invalide ou expiré | événement `connect_error` avec `err.message === "unauthorized"` |
 
-En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnecte avec le nouveau token. Le token n'est vérifié qu'au handshake : une connexion déjà ouverte n'est pas coupée quand l'access token expire, mais elle l'est à la déconnexion (`DELETE /v1/sessions/current`) ou à la réinitialisation du mot de passe.
+En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnecte avec le nouveau token. Le token n'est vérifié qu'au handshake : une connexion déjà ouverte n'est pas coupée quand l'access token expire, mais elle l'est à la déconnexion (`DELETE /v1/sessions/current`, `DELETE /v1/me/devices/:id`), au changement ou à la réinitialisation du mot de passe, et à la suppression du compte.
 
 ## Récapitulatif
 
@@ -302,3 +489,12 @@ En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnect
 | DELETE | `/v1/sessions/current` | Bearer | 204 |
 | POST | `/v1/password-resets` | non | 202 |
 | POST | `/v1/password-resets/confirm` | non | 204 |
+| GET | `/v1/me` | Bearer | 200 `me` |
+| PATCH | `/v1/me` | Bearer | 200 `me` |
+| DELETE | `/v1/me` | Bearer + preuve | 204 |
+| PUT | `/v1/me/password` | Bearer | 204 |
+| PUT | `/v1/me/oauth/google` | Bearer | 200 `me` |
+| DELETE | `/v1/me/oauth/google` | Bearer | 200 `me` |
+| GET | `/v1/me/devices` | Bearer | 200 |
+| PATCH | `/v1/me/devices/:id` | Bearer | 200 `device` |
+| DELETE | `/v1/me/devices/:id` | Bearer | 204 |

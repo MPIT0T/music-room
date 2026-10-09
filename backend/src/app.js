@@ -26,6 +26,9 @@ const healthSchema = {
     }),
   },
 };
+import { readGoogleConfig, readMailConfig } from './config.js';
+import { createTokenService } from './auth/tokens.js';
+import { createMailer } from './mail/mailer.js';
 
 export async function buildApp({
   pool = defaultPool,
@@ -33,16 +36,20 @@ export async function buildApp({
   logger = loggerOptions(),
   google = readGoogleConfig(),
   tokens = createTokenService(),
+  mailConfig = readMailConfig(),
+  mailer,
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
   registerProblemHandlers(app);
 
-  // Shared clients and config, available everywhere as app.db / app.redis / app.google / app.tokens
+  // Shared clients and config, available everywhere as app.db / app.redis / app.google / app.tokens / app.mailer
   app.decorate('db', pool);
   app.decorate('redis', redis);
   app.decorate('google', google);
   app.decorate('tokens', tokens);
+  // Built here because the default mailer logs through app.log, which only exists now
+  app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
