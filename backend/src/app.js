@@ -4,8 +4,10 @@ import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
+import { readGoogleConfig, readMailConfig } from './config.js';
 import { createTokenService } from './auth/tokens.js';
 import { registerSwagger } from './utils/docs.js';
+import { createMailer } from './mail/mailer.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
 const healthSchema = {
@@ -25,9 +27,6 @@ const healthSchema = {
     }),
   },
 };
-import { readGoogleConfig, readMailConfig } from './config.js';
-import { createTokenService } from './auth/tokens.js';
-import { createMailer } from './mail/mailer.js';
 
 export async function buildApp({
   pool = defaultPool,
