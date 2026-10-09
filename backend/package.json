@@ -14,6 +14,8 @@
     "format": "prettier --write . && eslint . --fix"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.9.1",
+    "@fastify/swagger-ui": "^6.1.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "fastify": "^5.0.0",
     "fastify-type-provider-zod": "^7.0.0",
