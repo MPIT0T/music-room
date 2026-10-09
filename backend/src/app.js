@@ -8,6 +8,8 @@ import { readGoogleConfig, readMailConfig } from './config.js';
 import { createTokenService } from './auth/tokens.js';
 import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
+import { passwords as defaultPasswords } from './auth/passwords.js';
+import usersRoutes from './routes/users.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
 const healthSchema = {
@@ -36,18 +38,20 @@ export async function buildApp({
   tokens = createTokenService(),
   mailConfig = readMailConfig(),
   mailer,
+  passwords = defaultPasswords,
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
   registerProblemHandlers(app);
 
-  // Shared clients and config, available everywhere as app.db / app.redis / app.google / app.tokens / app.mailer
+  // Shared clients and config, available everywhere as app.<name> (db, redis, tokens, mailer...)
   app.decorate('db', pool);
   app.decorate('redis', redis);
   app.decorate('google', google);
   app.decorate('tokens', tokens);
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
+  app.decorate('passwords', passwords);
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
@@ -74,6 +78,9 @@ export async function buildApp({
     req.log.error({ db: db.reason?.message, redis: cache.reason?.message }, 'health check failed');
     return reply.code(503).send(body);
   });
+
+  // After registerSwagger, so these routes appear in /docs
+  await app.register(usersRoutes);
 
   return app;
 }
