@@ -4,7 +4,6 @@ import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
-import { readGoogleConfig } from './config.js';
 import { createTokenService } from './auth/tokens.js';
 import { registerSwagger } from './utils/docs.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
