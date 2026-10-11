@@ -7,7 +7,7 @@ class AppButton extends StatelessWidget {
   const AppButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     this.variant = AppButtonVariant.primary,
     this.icon,
     this.isLoading = false,
@@ -40,7 +40,7 @@ class AppButton extends StatelessWidget {
     );
 
     final Widget child = isLoading ? buttonLoading : buttonContent;
-    final effectiveOnPressed = isLoading ? null : onPressed;
+    final VoidCallback? effectiveOnPressed = isLoading ? null : onPressed;
 
     switch (variant) {
       case .primary:

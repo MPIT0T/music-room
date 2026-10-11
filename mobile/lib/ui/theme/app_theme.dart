@@ -69,40 +69,45 @@ class StatusColors extends ThemeExtension<StatusColors> {
 const _textTheme = TextTheme(
   displaySmall: TextStyle(
     fontFamily: 'SpaceGrotesk',
-    fontSize: Space.xxl,
+    fontSize: 32,
     height: 38 / 32,
     fontWeight: FontWeight.w700,
   ),
   titleLarge: TextStyle(
     fontFamily: 'SpaceGrotesk',
-    fontSize: Space.xl,
+    fontSize: 24,
     height: 30 / 24,
     fontWeight: FontWeight.w600,
   ),
   titleMedium: TextStyle(
     fontFamily: 'Inter',
-    fontSize: Space.lg,
+    fontSize: 18,
     height: 24 / 18,
     fontWeight: FontWeight.w600,
   ),
   bodyLarge: TextStyle(
     fontFamily: 'Inter',
-    fontSize: Space.lg,
+    fontSize: 16,
     height: 22 / 16,
     fontWeight: FontWeight.w400,
   ),
   labelLarge: TextStyle(
     fontFamily: 'Inter',
-    fontSize: Space.md,
+    fontSize: 14,
     height: 20 / 14,
     fontWeight: FontWeight.w500,
   ),
   bodySmall: TextStyle(
     fontFamily: 'Inter',
-    fontSize: Space.md,
+    fontSize: 12,
     height: 16 / 12,
     fontWeight: FontWeight.w500,
   ),
+);
+
+InputBorder _border(Color color, {double width = 1}) => OutlineInputBorder(
+  borderRadius: .circular(Radi.control),
+  borderSide: BorderSide(color: color, width: width),
 );
 
 ThemeData buildAppTheme(Brightness brightness) {
@@ -145,10 +150,23 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
     inputDecorationTheme: InputDecorationThemeData(
-      labelStyle: _textTheme.bodyLarge,
-      border: OutlineInputBorder(borderRadius: .circular(Radi.control)),
-      focusedBorder: OutlineInputBorder(borderRadius: .circular(Radi.control)),
-      errorBorder: OutlineInputBorder(borderRadius: .circular(Radi.control)),
+      filled: true,
+      fillColor: scheme.surfaceContainerHigh,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Space.lg,
+        vertical: Space.md,
+      ),
+      hintStyle: _textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+      helperStyle: _textTheme.bodySmall,
+      errorStyle: _textTheme.bodySmall?.copyWith(color: scheme.error),
+
+      prefixIconColor: scheme.onSurfaceVariant,
+      suffixIconColor: scheme.onSurfaceVariant,
+      border: _border(scheme.outline),
+      enabledBorder: _border(scheme.outline),
+      focusedBorder: _border(scheme.primary, width: 2),
+      errorBorder: _border(scheme.error),
+      focusedErrorBorder: _border(scheme.error, width: 2),
     ),
   );
 }
