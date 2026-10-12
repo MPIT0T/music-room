@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { safeText } from '../validation.js';
 
-// ISO 8601 string on the wire, Date inside the app (both ways: request and response)
 const isoDate = z.codec(z.iso.datetime({ offset: true }), z.date(), {
   decode: (text) => new Date(text),
   encode: (date) => date.toISOString(),

@@ -44,7 +44,6 @@ export async function insertRoom(db, ownerId, input) {
   return toRoom(rows[0]);
 }
 
-// The version check makes the write conditional: returns null if someone wrote in between
 export async function updateRoom(db, roomId, expectedVersion, room) {
   const [result] = await db.query(
     `UPDATE rooms

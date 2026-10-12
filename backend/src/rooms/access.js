@@ -26,7 +26,7 @@ export function canView(room, role) {
 }
 
 export function canManage(room, role) {
-  return role === 'owner'; // ajouter un seulon la room ? a voir sur l'orchestration des conditions
+  return role === 'owner';
 }
 
 export function isWithinWindow(window, now) {
