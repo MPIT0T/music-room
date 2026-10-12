@@ -3,14 +3,12 @@ import { withTransaction } from '../db/tx.js';
 import { dbErrorProblem } from '../db/errors.js';
 import { HttpProblem, problemSchema } from '../errors.js';
 import { consumeEmailToken, issueEmailToken } from '../auth/email-tokens.js';
-import { safeText } from '../validation.js';
+import { emailField, safeText } from '../validation.js';
 import { rateLimit } from '../security/rate-limit.js';
 
 const accepted = z
   .null()
   .describe('Always 202 with an empty body, whether the email exists or not');
-
-const emailField = z.string().trim().toLowerCase().max(255).pipe(z.email());
 
 const signupBody = z.object({
   email: emailField,
