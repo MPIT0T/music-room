@@ -10,6 +10,8 @@ import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
+import { createRateLimiter } from './security/rate-limit.js';
+import { limits as defaultLimits } from './security/limits.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
 const healthSchema = {
@@ -39,6 +41,8 @@ export async function buildApp({
   mailConfig = readMailConfig(),
   mailer,
   passwords = defaultPasswords,
+  limits = defaultLimits,
+  rateLimiter,
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
@@ -52,6 +56,8 @@ export async function buildApp({
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
   app.decorate('passwords', passwords);
+  app.decorate('limits', limits);
+  app.decorate('rateLimiter', rateLimiter ?? createRateLimiter(redis, { log: app.log }));
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
