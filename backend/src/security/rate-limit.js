@@ -39,6 +39,13 @@ export function createRateLimiter(redis, { log } = {}) {
           : { allowed: false, retryAfter: Math.max(ttl, 1) };
       }),
 
+    // Forgets the attempts, e.g. after a successful login
+    reset: (rule, value) =>
+      guarded(rule, async () => {
+        await redis.del(keyOf(rule, value));
+        return { allowed: true };
+      }),
+
     // Reads without counting: lets a route count only failures (login)
     peek: (rule, value) =>
       guarded(rule, async () => {
@@ -51,6 +58,10 @@ export function createRateLimiter(redis, { log } = {}) {
   };
 }
 
+export function tooManyRequests(retryAfter) {
+  return new HttpProblem(429, 'rate_limited', { headers: { 'retry-after': String(retryAfter) } });
+}
+
 // preHandler: runs after body validation, so valueOf can read the normalized body
 export function rateLimit(rule, valueOf) {
   return async (request) => {
@@ -58,10 +69,6 @@ export function rateLimit(rule, valueOf) {
       rule,
       valueOf(request),
     );
-    if (!allowed) {
-      throw new HttpProblem(429, 'rate_limited', {
-        headers: { 'retry-after': String(retryAfter) },
-      });
-    }
+    if (!allowed) throw tooManyRequests(retryAfter);
   };
 }
