@@ -20,7 +20,7 @@ help: ## Command list
 	@echo "Dev, first run:"
 	@echo "  1. make doctor     optional: checks docker, node 22, flutter"
 	@echo "  2. make install    host deps for the IDE + flutter"
-	@echo "  3. make .env       then edit the secrets BEFORE the first make dev"
+	@echo "  3. make .env       passwords generated, fill in the Google IDs if needed"
 	@echo "  4. make dev        db, mailpit, api, then DB migrations"
 	@echo "  5. make mobile     app on a USB Android phone, else in Chrome"
 	@echo
@@ -37,8 +37,11 @@ help: ## Command list
 
 .env:
 	cp .env.example .env
-	sed -i.bak "s/^JWT_SECRET=.*/JWT_SECRET=$$(openssl rand -hex 32)/" .env && rm .env.bak
-	@echo ".env created from .env.example : please fill in the secrets."
+	for v in DB_PASSWORD DB_ROOT_PASSWORD JWT_SECRET; do \
+		sed -i.bak "s/^$$v=.*/$$v=$$(openssl rand -hex 32)/" .env; \
+	done
+	sed -i.bak "s/^SEED_PASSWORD=.*/SEED_PASSWORD=$$(openssl rand -hex 6)/" .env && rm .env.bak
+	@echo ".env created from .env.example with generated passwords."
 
 doctor: ## Checks the requirements (docker, node 22, npm, flutter, make)
 	@for c in docker node npm flutter make; do command -v $$c >/dev/null || { echo "missing: $$c"; exit 1; }; done
@@ -79,8 +82,8 @@ format: ## Formats the backend code (prettier + eslint --fix)
 migrate: ## DB migrations
 	$(STACK) run --rm api npm run migrate
 
-seed: ## Demo data (4 users, 2 rooms): make seed p="password"
-	$(STACK) exec -e SEED_PASSWORD="$(p)" api node src/db/seed.js
+seed: ## Demo data: 4 users (password = SEED_PASSWORD in .env), 2 rooms
+	$(STACK) exec api node src/db/seed.js
 
 shell: ## Shell inside the api container
 	$(STACK) exec api sh
