@@ -7,10 +7,10 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreen();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreen extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
@@ -38,6 +38,7 @@ class _LoginScreen extends State<LoginScreen> {
       appBar: AppBar(),
       body: AppScreenBody(
         fillHeight: true,
+        maxWidth: 480,
         child: Form(
           key: _formKey,
           child: AutofillGroup(
@@ -52,7 +53,7 @@ class _LoginScreen extends State<LoginScreen> {
                   label: 'Email',
                   controller: _email,
                   validator: (value) => (value == null || value.isEmpty)
-                      ? 'Please enter your email'
+                      ? 'Enter your email'
                       : null,
                   keyboardType: .emailAddress,
                   textInputAction: .next,
@@ -80,7 +81,7 @@ class _LoginScreen extends State<LoginScreen> {
                 ),
                 const SizedBox(height: Space.sm),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () => context.go('/signup'),
                   child: const Text("New here ? Create an account"),
                 ),
                 const SizedBox(height: Space.lg),

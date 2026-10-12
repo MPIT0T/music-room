@@ -75,9 +75,8 @@ class _AppPasswordInputState extends State<AppPasswordInput> {
           obscureText: _isObscure,
           controller: widget.controller,
           textInputAction: widget.textInputAction,
-          validator: (value) => (value == null || value.isEmpty)
-              ? 'Please enter your password'
-              : null,
+          validator: (value) =>
+              (value == null || value.isEmpty) ? 'Enter your password' : null,
           onFieldSubmitted: widget.onFieldSubmit,
           decoration: InputDecoration(
             suffixIcon: IconButton(

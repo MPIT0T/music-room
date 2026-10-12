@@ -11,6 +11,10 @@ abstract final class AppRouterConfig {
         builder: (context, state) => const WelcomeScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -38,11 +42,11 @@ abstract final class AppRouterConfig {
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
                   GoRoute(
-                    path: '/friends',
+                    path: 'friends',
                     builder: (context, state) => const FriendsScreen(),
                     routes: [
                       GoRoute(
-                        path: '/:userId',
+                        path: ':userId',
                         builder: (context, state) => const UserProfileScreen(),
                       ),
                     ],

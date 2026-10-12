@@ -5,27 +5,34 @@ class AppScreenBody extends StatelessWidget {
   const AppScreenBody({
     super.key,
     required this.child,
+    this.maxWidth,
     this.fillHeight = false,
   });
 
   final Widget child;
   final bool fillHeight;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    final padd = Padding(padding: const EdgeInsets.all(Space.lg), child: child);
+    final padd = Padding(
+      padding: const EdgeInsets.all(Space.screen),
+      child: child,
+    );
+    final Widget scroll = fillHeight
+        ? CustomScrollView(
+            slivers: [SliverFillRemaining(hasScrollBody: false, child: padd)],
+          )
+        : SingleChildScrollView(child: padd);
+
     return SafeArea(
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: fillHeight
-              ? CustomScrollView(
-                  slivers: [
-                    SliverFillRemaining(hasScrollBody: false, child: padd),
-                  ],
-                )
-              : SingleChildScrollView(child: padd),
-        ),
+        child: maxWidth == null
+            ? scroll
+            : ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: scroll,
+              ),
       ),
     );
   }

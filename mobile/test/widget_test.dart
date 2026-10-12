@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:music_room/features/dev/infra_test_screen.dart';
+import 'package:music_room/ui/screens/dev/infra_test_screen.dart';
 
 void main() {
   testWidgets('infra test screen renders with default backend URL', (

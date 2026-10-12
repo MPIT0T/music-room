@@ -14,6 +14,7 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: AppScreenBody(
         fillHeight: true,
+        maxWidth: 480,
         child: Column(
           mainAxisAlignment: .spaceEvenly,
           crossAxisAlignment: .stretch,
@@ -44,7 +45,10 @@ class WelcomeScreen extends StatelessWidget {
               icon: Icons.g_mobiledata_rounded,
             ),
             const SizedBox(height: Space.sm),
-            AppButton(label: 'Sign up with email', onPressed: () {}),
+            AppButton(
+              label: 'Sign up with email',
+              onPressed: () => context.push('/signup'),
+            ),
             const SizedBox(height: Space.md),
             TextButton(
               onPressed: () => context.push('/login'),
