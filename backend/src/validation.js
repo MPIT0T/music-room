@@ -17,3 +17,6 @@ export function safeText({ min = 0, max }) {
       message: 'must not contain control or text-direction characters',
     });
 }
+
+// Normalized before validation, so lookups and rate-limit keys never depend on case or spaces
+export const emailField = z.string().trim().toLowerCase().max(255).pipe(z.email());

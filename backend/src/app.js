@@ -10,6 +10,7 @@ import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
+import sessionsRoutes from './routes/sessions.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { limits as defaultLimits } from './security/limits.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -87,6 +88,7 @@ export async function buildApp({
 
   // After registerSwagger, so these routes appear in /docs
   await app.register(usersRoutes);
+  await app.register(sessionsRoutes);
 
   return app;
 }
