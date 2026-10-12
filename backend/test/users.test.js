@@ -5,6 +5,7 @@ import { Writable } from 'node:stream';
 import { buildApp } from '../src/app.js';
 import { loggerOptions } from '../src/logger.js';
 import { passwords as realPasswords } from '../src/auth/passwords.js';
+import { limits } from '../src/security/limits.js';
 
 // Integration tests: real MariaDB (make test). Every address is unique to this run.
 const RUN = randomUUID().slice(0, 8);
@@ -56,7 +57,17 @@ const stream = new Writable({
 
 let app;
 before(async () => {
-  app = await buildApp({ mailer, passwords, logger: loggerOptions({ stream }) });
+  // Rule names unique to this run: repeated `make test` runs never add up to the per-IP limit
+  const testLimits = {
+    signup: { ...limits.signup, name: `signup-${RUN}` },
+    resendVerification: { ...limits.resendVerification, name: `resend-${RUN}` },
+  };
+  app = await buildApp({
+    mailer,
+    passwords,
+    limits: testLimits,
+    logger: loggerOptions({ stream }),
+  });
 });
 beforeEach(() => {
   mailer.sent.length = 0;
@@ -64,6 +75,8 @@ beforeEach(() => {
 });
 after(async () => {
   await app.db.query('DELETE FROM users WHERE email LIKE ?', [`signup-${RUN}-%`]);
+  const keys = await app.redis.keys(`rl:*-${RUN}:*`);
+  if (keys.length) await app.redis.del(keys);
   await app.close();
 });
 
@@ -252,7 +265,7 @@ test('prototype pollution and malformed tokens are refused before the database',
 test('both routes are documented in the OpenAPI spec', async () => {
   const spec = (await app.inject({ method: 'GET', url: '/docs/json' })).json();
 
-  assert.deepEqual(Object.keys(spec.paths['/v1/users'].post.responses), ['202']);
+  assert.deepEqual(Object.keys(spec.paths['/v1/users'].post.responses), ['202', '429']);
   assert.deepEqual(Object.keys(spec.paths['/v1/users/verify-email'].post.responses), ['204']);
 });
 
