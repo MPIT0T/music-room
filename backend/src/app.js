@@ -10,6 +10,8 @@ import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
+import roomsRoutes from './routes/rooms.js';
+import playgroundRoutes from './dev/playground.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
 const healthSchema = {
@@ -39,6 +41,8 @@ export async function buildApp({
   mailConfig = readMailConfig(),
   mailer,
   passwords = defaultPasswords,
+  // Opt-in only: the playground mints tokens without a password
+  devTools = process.env.NODE_ENV === 'development',
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
@@ -52,6 +56,11 @@ export async function buildApp({
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
   app.decorate('passwords', passwords);
+  // Read by server.js to enable the dev-only socket events as well
+  app.decorate('devTools', devTools);
+  // Filled by requireAuth (src/auth/guards.js) on protected routes
+  app.decorateRequest('userId', null);
+  app.decorateRequest('deviceId', null);
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
@@ -81,6 +90,8 @@ export async function buildApp({
 
   // After registerSwagger, so these routes appear in /docs
   await app.register(usersRoutes);
+  await app.register(roomsRoutes);
+  if (devTools) await app.register(playgroundRoutes);
 
   return app;
 }
