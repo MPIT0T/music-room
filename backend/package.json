@@ -8,13 +8,16 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "migrate": "node src/db/migrate.js",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write . && eslint . --fix"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.9.1",
+    "@fastify/swagger-ui": "^6.1.1",
     "@socket.io/redis-adapter": "^8.3.0",
+    "argon2": "^0.45.1",
     "fastify": "^5.0.0",
     "fastify-type-provider-zod": "^7.0.0",
     "ioredis": "^6.0.0",

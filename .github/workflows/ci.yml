@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [ main ]
   push:
-    branches: [main]
+    branches: [ main ]
 
 # Un nouveau push sur la meme PR annule le run precedent
 concurrency:
@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: make prod
-      - run: make prod-migrate
+      - run: make migrate
       - name: Wait for /health
         run: |
           for i in $(seq 1 30); do
@@ -53,10 +53,10 @@ jobs:
           echo "api never became healthy"; exit 1
       - name: Logs on failure
         if: failure()
-        # make prod-logs follows the output forever, timeout stops it once printed
-        run: timeout 15 make prod-logs || true
+        # make logs follows the output forever, timeout stops it once printed
+        run: timeout 15 make logs || true
       - if: always()
-        run: make prod-down
+        run: make stop
 
   mobile:
     name: Flutter analyze, test, build
