@@ -5,6 +5,6 @@ export async function resetDb(pool) {
     throw new Error('resetDb refused: NODE_ENV is production');
   }
   for (const table of TABLES_IN_ORDER) {
-    await pool.query(`DELETE FROM ${table}`);
+    await pool.query('DELETE FROM ??', [table]);
   }
 }
