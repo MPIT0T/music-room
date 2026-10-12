@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import { pool } from './pool.js';
 import { withTransaction } from './tx.js';
 import { passwords } from '../auth/passwords.js';
@@ -7,10 +8,25 @@ if (!password || password.length < 8) {
   throw new Error('set SEED_PASSWORD (8 characters minimum) to seed the database');
 }
 
+const clientId = process.env.JAMENDO_CLIENT_ID;
+if (!clientId) {
+  throw new Error('set JAMENDO_CLIENT_ID (free, from devportal.jamendo.com) to seed the database');
+}
+
 const USERS = [
-  { key: 'alice', email: 'alice@musicroom.test', displayName: 'Alice', genres: ['Pop', 'Electro'] },
+  {
+    key: 'alice',
+    email: 'alice@musicroom.test',
+    displayName: 'Alice',
+    genres: ['Pop', 'Electronic'],
+  },
   { key: 'bob', email: 'bob@musicroom.test', displayName: 'Bob', genres: ['Rock', 'Metal'] },
-  { key: 'chloe', email: 'chloe@musicroom.test', displayName: 'Chloe', genres: ['Jazz', 'Soul'] },
+  {
+    key: 'chloe',
+    email: 'chloe@musicroom.test',
+    displayName: 'Chloe',
+    genres: ['Jazz', 'Classical'],
+  },
   {
     key: 'david',
     email: 'david@musicroom.test',
@@ -19,41 +35,22 @@ const USERS = [
   },
 ];
 
+// name stored in the genres table, tag used to query Jamendo
 const GENRES = [
-  'Pop',
-  'Rock',
-  'Electro',
-  'Hip-hop',
-  'Jazz',
-  'Classical',
-  'Soul',
-  'Reggae',
-  'Metal',
-  'Funk',
+  { name: 'Pop', tag: 'pop' },
+  { name: 'Rock', tag: 'rock' },
+  { name: 'Electronic', tag: 'electronic' },
+  { name: 'Hip-hop', tag: 'hiphop' },
+  { name: 'Jazz', tag: 'jazz' },
+  { name: 'Classical', tag: 'classical' },
+  { name: 'Reggae', tag: 'reggae' },
+  { name: 'Metal', tag: 'metal' },
+  { name: 'Folk', tag: 'folk' },
+  { name: 'Ambient', tag: 'ambient' },
 ];
 
-const TRACKS = [
-  { key: 'one-more-time', artist: 'Daft Punk', title: 'One More Time' },
-  { key: 'get-lucky', artist: 'Daft Punk', title: 'Get Lucky' },
-  { key: 'levitating', artist: 'Dua Lipa', title: 'Levitating' },
-  { key: 'blinding-lights', artist: 'The Weeknd', title: 'Blinding Lights' },
-  { key: 'bad-guy', artist: 'Billie Eilish', title: 'bad guy' },
-  { key: 'strobe', artist: 'deadmau5', title: 'Strobe' },
-  { key: 'midnight-city', artist: 'M83', title: 'Midnight City' },
-  { key: 'mr-brightside', artist: 'The Killers', title: 'Mr. Brightside' },
-  { key: 'seven-nation-army', artist: 'The White Stripes', title: 'Seven Nation Army' },
-  { key: 'smells-like-teen-spirit', artist: 'Nirvana', title: 'Smells Like Teen Spirit' },
-  { key: 'enter-sandman', artist: 'Metallica', title: 'Enter Sandman' },
-  { key: 'take-five', artist: 'Dave Brubeck', title: 'Take Five' },
-  { key: 'so-what', artist: 'Miles Davis', title: 'So What' },
-  { key: 'ain-t-no-sunshine', artist: 'Bill Withers', title: "Ain't No Sunshine" },
-  { key: 'superstition', artist: 'Stevie Wonder', title: 'Superstition' },
-  { key: 'get-up', artist: 'James Brown', title: 'Get Up (I Feel Like Being A) Sex Machine' },
-  { key: 'is-this-love', artist: 'Bob Marley & The Wailers', title: 'Is This Love' },
-  { key: 'lose-yourself', artist: 'Eminem', title: 'Lose Yourself' },
-  { key: 'humble', artist: 'Kendrick Lamar', title: 'HUMBLE.' },
-  { key: 'clair-de-lune', artist: 'Claude Debussy', title: 'Clair de lune' },
-];
+// most popular tracks of each genre, referenced below as `${tag}-${rank}`
+const TRACKS_PER_GENRE = 2;
 
 const ROOMS = [
   {
@@ -64,11 +61,11 @@ const ROOMS = [
     accessPolicy: 'everyone',
     members: [],
     queue: [
-      { track: 'one-more-time', addedBy: 'alice', votes: ['bob', 'chloe', 'david'] },
-      { track: 'strobe', addedBy: 'bob', votes: ['alice', 'chloe'] },
-      { track: 'midnight-city', addedBy: 'chloe', votes: ['david'] },
-      { track: 'get-lucky', addedBy: 'david', votes: [] },
-      { track: 'levitating', addedBy: 'alice', votes: [] },
+      { track: 'electronic-0', addedBy: 'alice', votes: ['bob', 'chloe', 'david'] },
+      { track: 'electronic-1', addedBy: 'bob', votes: ['alice', 'chloe'] },
+      { track: 'pop-0', addedBy: 'chloe', votes: ['david'] },
+      { track: 'hiphop-0', addedBy: 'david', votes: [] },
+      { track: 'ambient-0', addedBy: 'alice', votes: [] },
     ],
   },
   {
@@ -79,29 +76,52 @@ const ROOMS = [
     accessPolicy: 'invited',
     members: ['alice', 'david'],
     queue: [
-      { track: 'seven-nation-army', addedBy: 'bob', votes: ['alice', 'david'] },
-      { track: 'superstition', addedBy: 'alice', votes: ['bob'] },
-      { track: 'lose-yourself', addedBy: 'david', votes: [] },
+      { track: 'rock-0', addedBy: 'bob', votes: ['alice', 'david'] },
+      { track: 'jazz-0', addedBy: 'alice', votes: ['bob'] },
+      { track: 'metal-0', addedBy: 'david', votes: [] },
     ],
   },
 ];
 
-// Deezer search returns the best match first; the seed stores real ids so playback works.
-async function lookupDeezer({ artist, title }) {
-  const q = `artist:"${artist}" track:"${title}"`;
-  const res = await fetch(`https://api.deezer.com/search?limit=1&q=${encodeURIComponent(q)}`);
-  if (!res.ok)
-    throw new Error(`Deezer search failed (HTTP ${res.status}) for ${artist} - ${title}`);
+// Jamendo answers HTTP 200 even on errors: the real status is in body.headers
+async function fetchJamendoTracks(tag) {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    format: 'json',
+    limit: String(TRACKS_PER_GENRE),
+    tags: tag,
+    order: 'popularity_total',
+  });
+  const res = await fetch(`https://api.jamendo.com/v3.0/tracks/?${params}`);
+  if (!res.ok) throw new Error(`Jamendo request failed (HTTP ${res.status}) for tag ${tag}`);
   const body = await res.json();
-  const hit = body.data?.[0];
-  if (!hit) throw new Error(`no Deezer result for ${artist} - ${title}`);
-  return {
-    providerTrackId: String(hit.id),
-    title: hit.title,
-    artist: hit.artist.name,
-    durationMs: hit.duration * 1000,
-    coverUrl: hit.album?.cover_medium ?? null,
-  };
+  if (body.headers?.status !== 'success') {
+    throw new Error(`Jamendo error for tag ${tag}: ${body.headers?.error_message}`);
+  }
+  return body;
+}
+
+// Jamendo sometimes answers "success" with 0 results for a tag that has tracks: retry a few times
+async function topJamendoTracks(tag, attempts = 4) {
+  let body;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    body = await fetchJamendoTracks(tag);
+    if (body.results.length >= TRACKS_PER_GENRE) break;
+    if (attempt === attempts) {
+      throw new Error(
+        `not enough Jamendo tracks for tag ${tag} after ${attempts} tries: ${JSON.stringify(body.headers)}`,
+      );
+    }
+    await sleep(1000 * attempt);
+  }
+  return body.results.map((t, rank) => ({
+    key: `${tag}-${rank}`,
+    providerTrackId: String(t.id),
+    title: t.name,
+    artist: t.artist_name,
+    durationMs: t.duration * 1000,
+    coverUrl: t.image || null,
+  }));
 }
 
 const emails = USERS.map((u) => u.email);
@@ -113,8 +133,8 @@ if (existing.length > 0) {
 }
 
 // network calls and hashing stay outside the transaction (it may be replayed)
-const deezer = [];
-for (const t of TRACKS) deezer.push({ key: t.key, ...(await lookupDeezer(t)) });
+const tracks = [];
+for (const g of GENRES) tracks.push(...(await topJamendoTracks(g.tag)));
 const hashes = await Promise.all(USERS.map(() => passwords.hash(password)));
 
 await withTransaction(pool, async (conn) => {
@@ -128,8 +148,11 @@ await withTransaction(pool, async (conn) => {
     userIds[u.key] = row.id;
   }
 
-  await conn.query('INSERT IGNORE INTO genres (name) VALUES ?', [GENRES.map((g) => [g])]);
-  const [genreRows] = await conn.query('SELECT id, name FROM genres WHERE name IN (?)', [GENRES]);
+  const genreNames = GENRES.map((g) => g.name);
+  await conn.query('INSERT IGNORE INTO genres (name) VALUES ?', [genreNames.map((n) => [n])]);
+  const [genreRows] = await conn.query('SELECT id, name FROM genres WHERE name IN (?)', [
+    genreNames,
+  ]);
   const genreIds = Object.fromEntries(genreRows.map((g) => [g.name, g.id]));
 
   const userGenres = USERS.flatMap((u) => u.genres.map((g) => [userIds[u.key], genreIds[g]]));
@@ -138,15 +161,24 @@ await withTransaction(pool, async (conn) => {
   await conn.query(
     `INSERT IGNORE INTO tracks (provider, provider_track_id, title, artist, duration_ms, cover_url)
      VALUES ?`,
-    [deezer.map((t) => ['deezer', t.providerTrackId, t.title, t.artist, t.durationMs, t.coverUrl])],
+    [
+      tracks.map((t) => [
+        'jamendo',
+        t.providerTrackId,
+        t.title,
+        t.artist,
+        t.durationMs,
+        t.coverUrl,
+      ]),
+    ],
   );
   const [trackRows] = await conn.query(
-    "SELECT id, provider_track_id FROM tracks WHERE provider = 'deezer' AND provider_track_id IN (?)",
-    [deezer.map((t) => t.providerTrackId)],
+    "SELECT id, provider_track_id FROM tracks WHERE provider = 'jamendo' AND provider_track_id IN (?)",
+    [tracks.map((t) => t.providerTrackId)],
   );
   const idByProviderId = Object.fromEntries(trackRows.map((t) => [t.provider_track_id, t.id]));
   const trackIds = Object.fromEntries(
-    deezer.map((t) => [t.key, idByProviderId[t.providerTrackId]]),
+    tracks.map((t) => [t.key, idByProviderId[t.providerTrackId]]),
   );
 
   for (const room of ROOMS) {
@@ -179,6 +211,6 @@ await withTransaction(pool, async (conn) => {
 });
 
 console.log(
-  `seeded ${USERS.length} users, ${GENRES.length} genres, ${TRACKS.length} tracks, ${ROOMS.length} rooms`,
+  `seeded ${USERS.length} users, ${GENRES.length} genres, ${tracks.length} tracks, ${ROOMS.length} rooms`,
 );
 await pool.end();

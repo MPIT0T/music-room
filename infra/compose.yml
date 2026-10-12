@@ -42,6 +42,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-no-reply@musicroom.local}
       REDIS_URL: redis://redis:6379
       SEED_PASSWORD: ${SEED_PASSWORD:-}
+      JAMENDO_CLIENT_ID: ${JAMENDO_CLIENT_ID:-}
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://localhost:3000/health" ]
       interval: 5s
