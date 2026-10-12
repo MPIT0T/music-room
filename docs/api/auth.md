@@ -4,6 +4,8 @@ Statut : **proposition, phase 1**. Toute modification de ce contrat passe par un
 
 v1.1 : `User-Agent` normalisé, limite sur le renvoi d'email, profil (`/v1/me`), changement de mot de passe, liaison Google, appareils.
 
+Révision v1.1 : `deviceId` à la connexion, pour qu'un appareil qui se reconnecte garde sa ligne `devices` et ses délégations.
+
 Base URL : `APP_BASE_URL` (dev : `http://localhost:3000`). Toutes les routes sont préfixées par `/v1`.
 
 ## Conventions communes
@@ -34,7 +36,7 @@ Chaque réponse contient `X-Request-Id` (UUID généré par le serveur). L'app l
 
 Claims de l'access token : `sub` (id utilisateur), `did` (id de l'appareil/session), `iat`, `exp`. L'app **ne doit pas** décoder le JWT pour prendre des décisions : elle utilise `accessTokenExpiresIn` et les codes d'erreur.
 
-Une **session = un appareil** : chaque connexion crée une ligne `devices`. Se déconnecter sur un téléphone ne déconnecte pas les autres.
+Une **session = un appareil** : la première connexion d'un appareil crée une ligne `devices` ; les connexions suivantes la **réutilisent** si l'app renvoie son `deviceId` (voir ci-dessous). Se déconnecter sur un téléphone ne déconnecte pas les autres.
 
 ### Objet `device` (envoyé à chaque connexion)
 
@@ -48,6 +50,15 @@ Une **session = un appareil** : chaque connexion crée une ligne `devices`. Se d
 | `platform` | string | `android`, `ios` ou `web`, obligatoire |
 | `model` | string | ≤ 100 caractères, facultatif |
 | `appVersion` | string | ≤ 20 caractères, facultatif |
+
+### Champ `deviceId` (facultatif, à côté de `device`)
+
+L'objet `session` contient `deviceId`. L'app le stocke (`flutter_secure_storage`, il survit à la déconnexion) et le renvoie à **chaque** connexion suivante (`POST /v1/sessions` et `POST /v1/sessions/oauth`) :
+
+- `deviceId` d'un appareil **de cet utilisateur** : la ligne est réutilisée (nouveau refresh token, `name`, `model` et `appVersion` mis à jour) et ses délégations de contrôle sont conservées ;
+- `deviceId` absent, inconnu, ou appartenant à **un autre utilisateur** : un nouvel appareil est créé, **sans erreur** (pour ne révéler ni l'existence ni le propriétaire d'un id). L'app remplace alors le `deviceId` stocké par celui de la réponse.
+
+Le `deviceId` n'est pas un secret : il ne donne aucun droit sans le mot de passe ou l'ID token.
 
 ### Objet `user` (renvoyé par l'API)
 
@@ -71,6 +82,7 @@ Une **session = un appareil** : chaque connexion crée une ligne `devices`. Se d
   "accessTokenExpiresIn": 900,
   "refreshToken": "q8Xf0...base64url...",
   "refreshTokenExpiresIn": 2592000,
+  "deviceId": "0192f3a4-0000-7000-8000-00000000000d",
   "user": { "...": "objet user" }
 }
 ```
@@ -183,9 +195,12 @@ La limite est comptée **par email normalisé, que le compte existe ou non**. Si
 {
   "email": "max@example.com",
   "password": "correct horse battery",
-  "device": { "name": "Pixel de Max", "platform": "android", "model": "Pixel 7", "appVersion": "1.2.0" }
+  "device": { "name": "Pixel de Max", "platform": "android", "model": "Pixel 7", "appVersion": "1.2.0" },
+  "deviceId": "0192f3a4-0000-7000-8000-00000000000d"
 }
 ```
+
+`deviceId` est facultatif : voir « Champ `deviceId` ».
 
 **Réponse `200`** : objet `session`.
 
@@ -193,7 +208,7 @@ La limite est comptée **par email normalisé, que le compte existe ou non**. Si
 |---|---|---|
 | 401 | `invalid_credentials` | email inconnu **ou** mauvais mot de passe (même réponse, même temps de réponse) |
 | 403 | `email_not_verified` | mot de passe correct mais email non vérifié ; proposer « renvoyer l'email » |
-| 429 | `rate_limited` | 5 échecs / 15 min par couple IP + email |
+| 429 | `rate_limited` | 5 échecs / 15 min par couple IP + email, ou 50 échecs / 15 min par IP ; vérifié **avant** le mot de passe, donc même un mot de passe correct est refusé tant que la limite court |
 
 Un compte créé via Google sans mot de passe renvoie `invalid_credentials` : l'app propose « Continuer avec Google ».
 
@@ -205,9 +220,12 @@ L'app obtient un **ID token** Google avec `google_sign_in` (`serverClientId` = c
 {
   "provider": "google",
   "idToken": "eyJhbGciOiJSUzI1NiIs...",
-  "device": { "name": "Pixel de Max", "platform": "android" }
+  "device": { "name": "Pixel de Max", "platform": "android" },
+  "deviceId": "0192f3a4-0000-7000-8000-00000000000d"
 }
 ```
+
+`deviceId` est facultatif, avec les mêmes règles que pour `POST /v1/sessions`.
 
 Le serveur vérifie la signature Google, `iss`, `exp`, et que `aud` est l'un de nos client IDs (`GOOGLE_CLIENT_ID_WEB`, `GOOGLE_CLIENT_ID_ANDROID`).
 
