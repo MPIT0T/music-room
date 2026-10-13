@@ -14,6 +14,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _email = TextEditingController();
   bool _isLoading = false;
+  bool _linkSent = false;
 
   @override
   void dispose() {
@@ -26,7 +27,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 1)); // API CALL
     if (!mounted) return;
-    context.go('/login');
+    setState(() {
+      _isLoading = false;
+      _linkSent = true;
+    });
   }
 
   @override
@@ -39,50 +43,57 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: AppScreenBody(
         maxWidth: 480,
         fillHeight: true,
-        child: Column(
-          mainAxisAlignment: .spaceBetween,
-          crossAxisAlignment: .stretch,
-          children: [
-            Text("Forgot you password ?", style: tt.titleLarge),
-            const SizedBox(height: Space.sm),
-            Text(
-              "Enter your email and we will send you a link to\nchoose a new one.",
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: Space.lg),
-            AppInput(
-              label: 'Email',
-              controller: _email,
-              keyboardType: .emailAddress,
-              textInputAction: .done,
-              autofillHints: const [AutofillHints.email],
-              onFieldSubmit: (_) => _submit(),
-            ),
-            const SizedBox(height: Space.lg),
-            Card(
-              child: Padding(
-                padding: .all(Space.cardGap),
-                child: Row(
-                  children: [
-                    Icon(Icons.mail, color: cs.primary),
-                    const SizedBox(width: Space.sm),
-                    Expanded(
-                      child: Text(
-                        'If an account exists for this email, a link is on its way, Check your inbox.',
-                        style: tt.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            children: [
+              Text("Forgot your password ?", style: tt.titleLarge),
+              const SizedBox(height: Space.sm),
+              Text(
+                "Enter your email and we will send you a link to\nchoose a new one.",
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
-            ),
-            Spacer(),
-            AppButton(
-              label: 'Send link',
-              onPressed: () {},
-              isLoading: _isLoading,
-            ),
-          ],
+              const SizedBox(height: Space.lg),
+              AppInput(
+                label: 'Email',
+                controller: _email,
+                keyboardType: .emailAddress,
+                textInputAction: .done,
+                autofillHints: const [AutofillHints.email],
+                validator: (value) => (value == null || value.isEmpty)
+                    ? 'Enter your email'
+                    : null,
+                onFieldSubmit: (_) => _submit(),
+              ),
+              if (_linkSent) ...[
+                const SizedBox(height: Space.lg),
+                Card(
+                  child: Padding(
+                    padding: .all(Space.cardGap),
+                    child: Row(
+                      children: [
+                        Icon(Icons.mail, color: cs.primary),
+                        const SizedBox(width: Space.sm),
+                        Expanded(
+                          child: Text(
+                            'If an account exists for this email, a link is on its way. Check your inbox.',
+                            style: tt.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              AppButton(
+                label: _linkSent ? 'Back to login' : 'Send link',
+                onPressed: _linkSent ? () => context.go('/login') : _submit,
+                isLoading: _isLoading,
+              ),
+            ],
+          ),
         ),
       ),
     );
