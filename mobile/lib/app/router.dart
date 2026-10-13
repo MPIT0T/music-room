@@ -1,15 +1,20 @@
 import 'package:go_router/go_router.dart';
-import 'package:music_room/ui/screens/discover/discover_screen.dart';
-import 'package:music_room/ui/screens/my_rooms/my_rooms_screen.dart';
-import 'package:music_room/ui/screens/profile/profile_screen.dart';
-import 'package:music_room/ui/screens/profile/friends_screen.dart';
-import 'package:music_room/ui/screens/profile/user_profile_screen.dart';
+import 'package:music_room/ui/screens/screens.dart';
 import 'package:music_room/app/shell.dart';
 
 abstract final class AppRouterConfig {
   static final GoRouter router = GoRouter(
-    initialLocation: '/discover',
+    initialLocation: '/welcome',
     routes: [
+      GoRoute(
+        path: '/welcome',
+        builder: (context, state) => const WelcomeScreen(),
+      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -37,11 +42,11 @@ abstract final class AppRouterConfig {
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
                   GoRoute(
-                    path: '/friends',
+                    path: 'friends',
                     builder: (context, state) => const FriendsScreen(),
                     routes: [
                       GoRoute(
-                        path: '/:userId',
+                        path: ':userId',
                         builder: (context, state) => const UserProfileScreen(),
                       ),
                     ],

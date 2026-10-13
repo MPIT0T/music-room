@@ -1,5 +1,19 @@
+import { z } from 'zod';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import { dbErrorProblem } from './db/errors.js';
+
+// Body of every error response, for route documentation (response: { 429: problemSchema })
+export const problemSchema = z
+  .object({
+    type: z.string(),
+    title: z.string(),
+    status: z.number().int(),
+    code: z.string(),
+    detail: z.string().optional(),
+    requestId: z.string(),
+    errors: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+  })
+  .describe('application/problem+json (RFC 9457); clients rely on `code`');
 
 // Thrown by routes for expected failures; the handler turns it into problem+json
 export class HttpProblem extends Error {

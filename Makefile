@@ -2,8 +2,15 @@ DC     := docker compose --project-directory . $(if $(wildcard .env),--env-file 
 DEV    := $(DC) -f infra/compose.yml -f infra/compose.dev.yml
 PROD   := $(DC) -f infra/compose.yml -f infra/compose.prod.yml
 
+# Stack currently running, read from the compose label of the api container (dev when none).
+# Recursive (=) so each recipe sees the state at the moment it runs.
+RUNNING = $(shell docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' music-room-api 2>/dev/null)
+IS_PROD = $(findstring compose.prod.yml,$(RUNNING))
+STACK   = $(if $(IS_PROD),$(PROD),$(DEV))
+DEV_ONLY = $(if $(IS_PROD),$(error the prod stack is running: make stop, then make dev))
+
 .DEFAULT_GOAL := help
-.PHONY: help doctor install add dev stop logs ps test lint format migrate shell db mobile clean fclean re prod prod-down prod-logs prod-migrate
+.PHONY: help doctor install add dev stop logs ps test lint format migrate seed shell db mobile clean fclean re prod
 
 help: ## Command list
 	@echo "Usage: make <target>"
@@ -13,7 +20,7 @@ help: ## Command list
 	@echo "Dev, first run:"
 	@echo "  1. make doctor     optional: checks docker, node 22, flutter"
 	@echo "  2. make install    host deps for the IDE + flutter"
-	@echo "  3. make .env       then edit the secrets BEFORE the first make dev"
+	@echo "  3. make .env       passwords generated, fill in the Google IDs if needed"
 	@echo "  4. make dev        db, mailpit, api, then DB migrations"
 	@echo "  5. make mobile     app on a USB Android phone, else in Chrome"
 	@echo
@@ -25,13 +32,16 @@ help: ## Command list
 	@echo "  1. make .env       strong secrets + the SMTP_* lines (no mailpit in prod)"
 	@echo "  2. make stop       dev and prod share the same containers and DB volume"
 	@echo "  3. make prod       builds and starts db + api on port 3000, then migrations"
-	@echo "  make prod-logs / make prod-down    follow / stop it"
+	@echo "  make logs / make stop              follow / stop it (dev or prod, detected)"
 	@echo "  make prod                          again after a git pull, to rebuild"
 
 .env:
 	cp .env.example .env
-	sed -i.bak "s/^JWT_SECRET=.*/JWT_SECRET=$$(openssl rand -hex 32)/" .env && rm .env.bak
-	@echo ".env created from .env.example : please fill in the secrets."
+	for v in DB_PASSWORD DB_ROOT_PASSWORD JWT_SECRET; do \
+		sed -i.bak "s/^$$v=.*/$$v=$$(openssl rand -hex 32)/" .env; \
+	done
+	sed -i.bak "s/^SEED_PASSWORD=.*/SEED_PASSWORD=$$(openssl rand -hex 6)/" .env && rm .env.bak
+	@echo ".env created from .env.example with generated passwords."
 
 doctor: ## Checks the requirements (docker, node 22, npm, flutter, make)
 	@for c in docker node npm flutter make; do command -v $$c >/dev/null || { echo "missing: $$c"; exit 1; }; done
@@ -45,38 +55,41 @@ install: ## Host dependencies: backend (for the IDE) + flutter
 
 add: ## Adds a backend package: make add p="fastify-plugin"
 	cd backend && npm install $(p)
-	$(DEV) up -d --build -V api
+	$(STACK) up -d --build -V api
 
 dev: .env ## Launches db, mailpit and api (hot reload), then DB migrations
 	$(DEV) up -d --build -V
 	$(DEV) exec api npm run migrate
 
-stop: ## Stops the dev stack (keeps the data)
-	$(DEV) down
+stop: ## Stops the running stack, dev or prod (keeps the data)
+	$(STACK) down
 
 logs: ## Aggregated logs of every service
-	$(DEV) logs -f --tail=100
+	$(STACK) logs -f --tail=100
 
 ps: ## Container states
-	$(DEV) ps
+	$(STACK) ps
 
-test: ## Backend tests
-	$(DEV) run --rm api npm test
+test: ## Backend tests (dev only)
+	$(DEV_ONLY)$(DEV) run --rm api npm test
 
-lint: ## Backend lint
-	$(DEV) run --rm --no-deps api npm run lint
+lint: ## Backend lint (dev only)
+	$(DEV_ONLY)$(DEV) run --rm --no-deps api npm run lint
 
 format: ## Formats the backend code (prettier + eslint --fix)
 	cd backend && npm run format
 
-migrate: ## DB migrations (dev)
-	$(DEV) run --rm api npm run migrate
+migrate: ## DB migrations
+	$(STACK) run --rm api npm run migrate
+
+seed: ## Demo data: 4 users (password = SEED_PASSWORD in .env), 2 rooms
+	$(STACK) exec api node src/db/seed.js
 
 shell: ## Shell inside the api container
-	$(DEV) exec api sh
+	$(STACK) exec api sh
 
 db: ## MariaDB client
-	$(DEV) exec db sh -c 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" "$$MARIADB_DATABASE"'
+	$(STACK) exec db sh -c 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" "$$MARIADB_DATABASE"'
 
 mobile: ## Launches the flutter app (hot reload)
 	cd mobile && flutter run
@@ -98,12 +111,3 @@ re: fclean install dev ## Total reset then restart
 prod: .env ## Production stack, then DB migrations
 	$(PROD) up -d --build
 	$(PROD) exec api npm run migrate
-
-prod-down: ## Stops the production stack
-	$(PROD) down
-
-prod-logs: ## Production logs
-	$(PROD) logs -f --tail=100
-
-prod-migrate: ## DB migrations (prod)
-	$(PROD) run --rm api npm run migrate
