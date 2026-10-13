@@ -10,6 +10,8 @@ import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
+import roomsRoutes from './routes/rooms.js';
+import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { limits as defaultLimits } from './security/limits.js';
@@ -42,6 +44,8 @@ export async function buildApp({
   mailConfig = readMailConfig(),
   mailer,
   passwords = defaultPasswords,
+  // Opt-in only: the playground mints tokens without a password
+  devTools = process.env.NODE_ENV === 'development',
   limits = defaultLimits,
   rateLimiter,
 } = {}) {
@@ -88,6 +92,8 @@ export async function buildApp({
 
   // After registerSwagger, so these routes appear in /docs
   await app.register(usersRoutes);
+  await app.register(roomsRoutes);
+  if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);
 
   return app;
