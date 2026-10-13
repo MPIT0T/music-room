@@ -38,7 +38,9 @@ class _SignupScreenState extends State<SignupScreen> {
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => context.go('/welcome')),
+      ),
       body: AppScreenBody(
         maxWidth: 480,
         fillHeight: true,

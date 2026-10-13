@@ -34,11 +34,15 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => context.go('/welcome')),
+      ),
       body: AppScreenBody(
-        fillHeight: true,
         maxWidth: 480,
+        fillHeight: true,
         child: Form(
           key: _formKey,
           child: AutofillGroup(
@@ -46,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: .spaceEvenly,
               crossAxisAlignment: .stretch,
               children: [
-                const SizedBox(height: Space.lg),
                 Text("Log in", style: tt.titleLarge),
                 const SizedBox(height: Space.xl),
                 AppInput(
@@ -69,8 +72,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: .centerEnd,
                   child: TextButton(
-                    onPressed: () {},
-                    child: const Text("Forgot your password ?"),
+                    onPressed: () => context.push('/forgot-password'),
+                    child: Text(
+                      "Forgot your password ?",
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        decoration: .underline,
+                      ),
+                    ),
                   ),
                 ),
                 const Spacer(),
@@ -80,11 +89,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _submit,
                 ),
                 const SizedBox(height: Space.sm),
-                TextButton(
-                  onPressed: () => context.go('/signup'),
-                  child: const Text("New here ? Create an account"),
+                Row(
+                  mainAxisAlignment: .center,
+                  children: [
+                    Text(
+                      "New here ?",
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/signup'),
+                      child: Text(
+                        "Create an account",
+                        style: tt.bodySmall?.copyWith(decoration: .underline),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: Space.lg),
               ],
             ),
           ),
