@@ -171,5 +171,15 @@ ThemeData buildAppTheme(Brightness brightness) {
       errorBorder: _border(scheme.error),
       focusedErrorBorder: _border(scheme.error, width: 2),
     ),
+    sliderTheme: SliderThemeData(
+      trackHeight: 4,
+      thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+      overlayShape: .noOverlay,
+      activeTrackColor: scheme.primary,
+      inactiveTrackColor: scheme.surfaceContainerHigh,
+      thumbColor: scheme.primary,
+      overlayColor: scheme.primary.withValues(alpha: 0.12),
+      padding: .zero,
+    ),
   );
 }
