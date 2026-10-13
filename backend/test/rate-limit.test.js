@@ -50,6 +50,16 @@ test('peek reads without counting', async () => {
   assert.equal((await limiter.peek(r, 'x')).allowed, false);
 });
 
+test('reset forgets the attempts', async () => {
+  const r = rule(1);
+
+  await limiter.consume(r, 'x');
+  assert.equal((await limiter.peek(r, 'x')).allowed, false);
+  await limiter.reset(r, 'x');
+
+  assert.equal((await limiter.peek(r, 'x')).allowed, true);
+});
+
 test('Redis keys hold a hash, never the email in clear', async () => {
   const r = rule(5);
 
