@@ -1,0 +1,34 @@
+{
+  "headers": {
+    "status": "success",
+    "code": 0,
+    "error_message": "",
+    "warnings": "",
+    "results_count": 1,
+    "next": "https://api.jamendo.com/v3.0/tracks?client_id=********&format=json&limit=1&offset=1"
+  },
+  "results": [
+    {
+      "id": "241",
+      "name": "Simple Exercice",
+      "duration": 340,
+      "artist_id": "5",
+      "artist_name": "Both",
+      "artist_idstr": "both",
+      "album_name": "Simple Exercice",
+      "album_id": "33",
+      "license_ccurl": "",
+      "position": 1,
+      "releasedate": "2004-12-28",
+      "album_image": "https://usercontent.jamendo.com?type=album&id=33&width=300&trackid=241",
+      "audio": "https://prod-1.storage.jamendo.com/?trackid=241&format=mp31&from=EH46Js7uldtIFAt%2B8BOzXg%3D%3D%7C39NITiUKQWEy5s8HAgYQ%2BA%3D%3D",
+      "audiodownload": "https://prod-1.storage.jamendo.com/download/track/241/mp32/",
+      "prourl": "",
+      "shorturl": "https://jamen.do/t/241",
+      "shareurl": "https://www.jamendo.com/track/241",
+      "audiodownload_allowed": true,
+      "content_id_free": false,
+      "image": "https://usercontent.jamendo.com?type=album&id=33&width=300&trackid=241"
+    }
+  ]
+}
