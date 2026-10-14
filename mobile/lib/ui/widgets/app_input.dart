@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:music_room/ui/theme/tokens.dart';
 
 class AppInput extends StatelessWidget {
   const AppInput({
@@ -9,13 +10,16 @@ class AppInput extends StatelessWidget {
     this.textInputAction,
     this.autofillHints,
     this.validator,
+    this.onFieldSubmit,
   });
+
   final String label;
   final TextEditingController controller;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
   final String? Function(String?)? validator;
+  final void Function(String)? onFieldSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +30,14 @@ class AppInput extends StatelessWidget {
       crossAxisAlignment: .start,
       children: [
         Text(label, style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+        const SizedBox(height: Space.xs),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           autofillHints: autofillHints,
           validator: validator,
+          onFieldSubmitted: onFieldSubmit,
         ),
       ],
     );
@@ -71,6 +77,7 @@ class _AppPasswordInputState extends State<AppPasswordInput> {
           widget.label,
           style: tt.labelLarge?.copyWith(color: cs.onSurfaceVariant),
         ),
+        const SizedBox(height: Space.xs),
         TextFormField(
           obscureText: _isObscure,
           controller: widget.controller,

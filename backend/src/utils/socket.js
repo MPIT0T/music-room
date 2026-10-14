@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { pub, sub } from './redis.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
+import { devBroadcastHandler } from '../dev/socket.js';
 
 export function authenticateSocket(tokens, log) {
   return async (socket, next) => {
@@ -18,7 +19,7 @@ export function authenticateSocket(tokens, log) {
   };
 }
 
-export function socketSetup(httpServer, { tokens, db, log }) {
+export function socketSetup(httpServer, { tokens, db, log, devTools = false }) {
   const io = new Server(httpServer, { cors: { origin: false } });
   io.adapter(createAdapter(pub, sub));
 
@@ -32,6 +33,7 @@ export function socketSetup(httpServer, { tokens, db, log }) {
     socket.on('unsubscribe', (payload) => {
       if (typeof payload?.roomId === 'string') socket.leave(`room:${payload.roomId}`);
     });
+    if (devTools) socket.on('dev:broadcast', devBroadcastHandler(io, socket));
   });
 
   io.on('close', () => {});

@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Music Room · bac à sable</title>
+    <style>
+      :root {
+        --bg: #f6f5f1;
+        --panel: #ffffff;
+        --ink: #1d1c19;
+        --muted: #6b6960;
+        --line: #e2dfd6;
+        --accent: #3c5bd6;
+        --ok: #1f7a4d;
+        --warn: #9a5b00;
+        --err: #b3261e;
+        --code: #f1efe8;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141412;
+          --panel: #1d1c1a;
+          --ink: #ecebe6;
+          --muted: #9c9a92;
+          --line: #33322e;
+          --accent: #8ea2ff;
+          --ok: #5fcf97;
+          --warn: #f0b14f;
+          --err: #ff8a80;
+          --code: #262522;
+          color-scheme: dark;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+      }
+      header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 16px;
+        align-items: baseline;
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-size: 16px;
+        margin: 0;
+      }
+      header span {
+        color: var(--muted);
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) 1fr;
+        gap: 16px;
+        padding: 16px 20px;
+        align-items: start;
+      }
+      @media (max-width: 860px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 16px;
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 8px 0 3px;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+      }
+      button {
+        padding: 6px 12px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: end;
+      }
+      .row > * {
+        flex: 1;
+      }
+      .row > button {
+        flex: 0 0 auto;
+      }
+      .actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .list {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+      }
+      .list li {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .list li:hover {
+        background: var(--bg);
+      }
+      .list li.active {
+        outline: 2px solid var(--accent);
+      }
+      .list small,
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tag {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+      code,
+      pre {
+        font:
+          12px/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      pre {
+        background: var(--code);
+        border-radius: 6px;
+        padding: 8px;
+        margin: 6px 0 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 360px;
+        overflow: auto;
+      }
+      .log-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .entry {
+        border-top: 1px solid var(--line);
+        padding: 8px 0;
+      }
+      .entry summary {
+        cursor: pointer;
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        list-style: none;
+      }
+      .entry summary::-webkit-details-marker {
+        display: none;
+      }
+      .status {
+        font-weight: 600;
+        min-width: 34px;
+      }
+      .s2 {
+        color: var(--ok);
+      }
+      .s3,
+      .s4 {
+        color: var(--warn);
+      }
+      .s5,
+      .s0 {
+        color: var(--err);
+      }
+      .sock {
+        color: var(--accent);
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      @media (max-width: 1100px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        display: inline-block;
+      }
+      .dot.on {
+        background: var(--ok);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Music Room · bac à sable</h1>
+      <span>Dev uniquement. Chaque échange avec l'API apparaît à droite.</span>
+    </header>
+    <main>
+      <div>
+        <section>
+          <h2>Utilisateurs de test</h2>
+          <form id="user-form" class="row">
+            <div>
+              <label for="user-name">Nom affiché</label>
+              <input id="user-name" maxlength="50" placeholder="Alice" required />
+            </div>
+            <button class="primary" type="submit">Créer</button>
+          </form>
+          <ul id="users" class="list"></ul>
+          <p class="hint" id="users-hint">
+            Crée au moins deux utilisateurs pour tester les rooms privées. Clique sur un nom pour
+            agir en son nom.
+          </p>
+        </section>
+
+        <section>
+          <h2>Créer une room</h2>
+          <form id="room-form">
+            <label for="room-name">Nom</label>
+            <input id="room-name" maxlength="100" placeholder="Soirée du samedi" />
+            <label for="room-desc">Description</label>
+            <input id="room-desc" maxlength="1000" placeholder="facultatif" />
+            <div class="row">
+              <div>
+                <label for="room-visibility">Visibilité</label>
+                <select id="room-visibility">
+                  <option value="">(défaut : public)</option>
+                  <option>public</option>
+                  <option>private</option>
+                </select>
+              </div>
+              <div>
+                <label for="room-policy">Qui vote</label>
+                <select id="room-policy">
+                  <option value="">(défaut : everyone)</option>
+                  <option>everyone</option>
+                  <option>invited</option>
+                  <option>time_window</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="room-start">Début de fenêtre</label>
+                <input id="room-start" type="datetime-local" />
+              </div>
+              <div>
+                <label for="room-end">Fin de fenêtre</label>
+                <input id="room-end" type="datetime-local" />
+              </div>
+            </div>
+            <div class="actions">
+              <button class="primary" type="submit">POST /v1/rooms</button>
+              <button type="button" id="room-raw-toggle">Corps JSON brut</button>
+            </div>
+            <div id="room-raw" hidden>
+              <label for="room-json">Envoyé tel quel (pour tester les erreurs 400)</label>
+              <textarea id="room-json" rows="5">{ "name": "" }</textarea>
+              <div class="actions">
+                <button type="button" id="room-raw-send">Envoyer le JSON brut</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section>
+          <h2>Lire une room</h2>
+          <form id="get-form" class="row">
+            <div>
+              <label for="get-id">Id</label>
+              <input id="get-id" placeholder="uuid" />
+            </div>
+            <button class="primary" type="submit">GET</button>
+          </form>
+          <div class="actions">
+            <button type="button" id="no-token">GET sans token</button>
+          </div>
+          <ul id="rooms" class="list"></ul>
+          <p class="hint">
+            Rooms créées depuis cette page. Clique pour la relire avec l'utilisateur actif.
+          </p>
+        </section>
+
+        <section>
+          <h2>Modifier une room (PATCH)</h2>
+          <p class="hint">
+            Utilise l'id du champ « Lire une room ». Envoie seulement les champs à changer.
+            L'If-Match est rempli avec le dernier ETag reçu : vide-le pour voir le 428, mets une
+            vieille version pour voir le 412.
+          </p>
+          <form id="patch-form">
+            <label for="patch-json">Corps JSON</label>
+            <textarea id="patch-json" rows="4">{ "name": "Nouveau nom" }</textarea>
+            <div class="row">
+              <div>
+                <label for="patch-etag">If-Match</label>
+                <input id="patch-etag" placeholder='"0"' />
+              </div>
+              <button class="primary" type="submit">PATCH</button>
+            </div>
+          </form>
+        </section>
+
+        <section>
+          <h2>Temps réel (Socket.IO)</h2>
+          <p class="hint">
+            Une connexion par utilisateur : connecte Alice et Bob, abonne-les à la même room, puis
+            envoie un message. Il arrive chez tous les abonnés.
+          </p>
+          <ul id="sockets" class="list"></ul>
+          <div class="actions">
+            <button type="button" id="sock-connect">Connecter l'utilisateur actif</button>
+            <button type="button" id="sock-disconnect" disabled>Déconnecter</button>
+          </div>
+          <form id="sub-form" class="row" style="margin-top: 8px">
+            <div>
+              <label for="sub-id">Room</label>
+              <input id="sub-id" placeholder="uuid" />
+            </div>
+            <button type="submit" id="sub-btn" disabled>subscribe</button>
+            <button type="button" id="unsub-btn" disabled>unsubscribe</button>
+          </form>
+          <form id="msg-form" class="row" style="margin-top: 8px">
+            <div>
+              <label for="msg-text">Message (dev:broadcast)</label>
+              <input id="msg-text" maxlength="500" placeholder="Salut la room" />
+            </div>
+            <button type="submit" id="msg-btn" class="primary" disabled>Envoyer</button>
+          </form>
+        </section>
+      </div>
+
+      <section>
+        <div class="log-head">
+          <h2>Échanges</h2>
+          <button type="button" id="clear-log">Vider</button>
+        </div>
+        <div id="log"></div>
+      </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const TOKEN_TTL_MS = 14 * 60 * 1000;
+
+      // Per-browser conveniences only: the real data lives in the database
+      const store = {
+        read(key, fallback) {
+          try {
+            return JSON.parse(localStorage.getItem(`mr-playground:${key}`)) ?? fallback;
+          } catch {
+            return fallback;
+          }
+        },
+        write(key, value) {
+          try {
+            localStorage.setItem(`mr-playground:${key}`, JSON.stringify(value));
+          } catch {
+            /* private window: keep working in memory */
+          }
+        },
+      };
+
+      const state = {
+        users: store.read('users', []),
+        rooms: store.read('rooms', []),
+        activeId: store.read('activeId', null),
+        socket: null,
+      };
+      const save = () => {
+        store.write('users', state.users);
+        store.write('rooms', state.rooms);
+        store.write('activeId', state.activeId);
+      };
+      const activeUser = () => state.users.find((u) => u.id === state.activeId) ?? null;
+      const userName = (id) => state.users.find((u) => u.id === id)?.displayName ?? id?.slice(0, 8);
+
+      // ---------- log ----------
+      const pretty = (value) =>
+        typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+
+      function logEntry({ cls, badge, title, sections, open = false }) {
+        const entry = document.createElement('details');
+        entry.className = 'entry';
+        entry.open = open;
+        const summary = document.createElement('summary');
+        const b = document.createElement('span');
+        b.className = `status ${cls}`;
+        b.textContent = badge;
+        const t = document.createElement('code');
+        t.textContent = title;
+        const time = document.createElement('small');
+        time.className = 'hint';
+        time.textContent = new Date().toLocaleTimeString();
+        summary.append(b, t, time);
+        entry.append(summary);
+        const grid = document.createElement('div');
+        grid.className = 'grid2';
+        for (const [label, content] of sections) {
+          const box = document.createElement('div');
+          const l = document.createElement('small');
+          l.className = 'hint';
+          l.textContent = label;
+          const pre = document.createElement('pre');
+          pre.textContent = pretty(content);
+          box.append(l, pre);
+          grid.append(box);
+        }
+        entry.append(grid);
+        $('log').prepend(entry);
+      }
+
+      // ---------- http ----------
+      const SHOWN_HEADERS = [
+        'content-type',
+        'etag',
+        'location',
+        'www-authenticate',
+        'x-request-id',
+      ];
+      const shortToken = (token) => `Bearer ${token.slice(0, 16)}…${token.slice(-6)}`;
+
+      async function call(
+        method,
+        url,
+        { body, rawBody, user = activeUser(), log = true, headers: extra = {} } = {},
+      ) {
+        const headers = { ...extra };
+        if (user) headers.authorization = `Bearer ${await freshToken(user)}`;
+        const payload = rawBody ?? (body === undefined ? undefined : JSON.stringify(body));
+        if (payload !== undefined) headers['content-type'] = 'application/json';
+
+        let res;
+        let data = null;
+        try {
+          res = await fetch(url, { method, headers, body: payload });
+          const text = await res.text();
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = text;
+          }
+        } catch (err) {
+          logEntry({
+            cls: 's0',
+            badge: 'ERR',
+            title: `${method} ${url}`,
+            sections: [['réseau', err.message]],
+            open: true,
+          });
+          throw err;
+        }
+
+        if (log) {
+          const shownHeaders = Object.fromEntries(
+            SHOWN_HEADERS.filter((h) => res.headers.has(h)).map((h) => [h, res.headers.get(h)]),
+          );
+          const reqHeaders = { ...headers };
+          if (reqHeaders.authorization)
+            reqHeaders.authorization = shortToken(reqHeaders.authorization.slice(7));
+          logEntry({
+            cls: `s${String(res.status)[0]}`,
+            badge: res.status,
+            title: `${method} ${url}${user ? `  · ${user.displayName}` : '  · sans token'}`,
+            open: res.status >= 400,
+            sections: [
+              [
+                'requête',
+                {
+                  headers: reqHeaders,
+                  body: payload === undefined ? undefined : safeParse(payload),
+                },
+              ],
+              ['réponse', { headers: shownHeaders, body: data }],
+            ],
+          });
+        }
+        return { status: res.status, headers: res.headers, data };
+      }
+
+      const safeParse = (text) => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return text;
+        }
+      };
+
+      async function freshToken(user) {
+        if (Date.now() - user.issuedAt < TOKEN_TTL_MS) return user.accessToken;
+        const res = await fetch(`/dev/users/${user.id}/token`, { method: 'POST' });
+        if (!res.ok) throw new Error(`could not renew the token of ${user.displayName}`);
+        user.accessToken = (await res.json()).accessToken;
+        user.issuedAt = Date.now();
+        save();
+        return user.accessToken;
+      }
+
+      // ---------- users ----------
+      function renderUsers() {
+        const list = $('users');
+        list.replaceChildren();
+        for (const user of state.users) {
+          const li = document.createElement('li');
+          li.className = user.id === state.activeId ? 'active' : '';
+          const name = document.createElement('strong');
+          name.textContent = user.displayName;
+          const id = document.createElement('small');
+          id.textContent = user.id;
+          li.append(name, id);
+          li.onclick = () => selectUser(user.id);
+          list.append(li);
+        }
+        $('users-hint').hidden = state.users.length >= 2;
+      }
+
+      function selectUser(id) {
+        state.activeId = id;
+        save();
+        renderUsers();
+        renderSockets();
+      }
+
+      $('user-form').onsubmit = async (event) => {
+        event.preventDefault();
+        const displayName = $('user-name').value;
+        const res = await call('POST', '/dev/users', { body: { displayName }, user: null });
+        if (res.status !== 201) return;
+        state.users.push({
+          ...res.data.user,
+          accessToken: res.data.accessToken,
+          issuedAt: Date.now(),
+        });
+        if (!activeUser()) state.activeId = res.data.user.id;
+        save();
+        $('user-name').value = '';
+        renderUsers();
+      };
+
+      // ---------- rooms ----------
+      function rememberRoom(room) {
+        if (room.id === $('get-id').value.trim()) {
+          $('patch-etag').value = `"${room.version}"`;
+        }
+        state.rooms = [room, ...state.rooms.filter((r) => r.id !== room.id)].slice(0, 30);
+        save();
+        renderRooms();
+      }
+
+      function renderRooms() {
+        const list = $('rooms');
+        list.replaceChildren();
+        for (const room of state.rooms) {
+          const li = document.createElement('li');
+          const name = document.createElement('strong');
+          name.textContent = room.name;
+          const vis = document.createElement('span');
+          vis.className = 'tag';
+          vis.textContent = room.visibility;
+          const pol = document.createElement('span');
+          pol.className = 'tag';
+          pol.textContent = room.accessPolicy;
+          const owner = document.createElement('small');
+          owner.textContent = `par ${userName(room.ownerId)}`;
+          li.append(name, vis, pol, owner);
+          li.onclick = () => {
+            $('get-id').value = room.id;
+            $('patch-etag').value = `"${room.version}"`;
+            $('sub-id').value = room.id;
+            getRoom(room.id);
+          };
+          list.append(li);
+        }
+      }
+
+      function roomBody() {
+        const body = { name: $('room-name').value };
+        if ($('room-desc').value) body.description = $('room-desc').value;
+        if ($('room-visibility').value) body.visibility = $('room-visibility').value;
+        if ($('room-policy').value) body.accessPolicy = $('room-policy').value;
+        const start = $('room-start').value;
+        const end = $('room-end').value;
+        if (start || end) {
+          body.window = {
+            start: start ? new Date(start).toISOString() : '',
+            end: end ? new Date(end).toISOString() : '',
+          };
+        }
+        return body;
+      }
+
+      async function createRoom(options) {
+        if (!activeUser()) return alertNoUser();
+        const res = await call('POST', '/v1/rooms', options);
+        if (res.status === 201) {
+          $('get-id').value = res.data.id;
+          $('sub-id').value = res.data.id;
+          rememberRoom(res.data);
+        }
+      }
+
+      async function getRoom(id, { anonymous = false } = {}) {
+        const user = anonymous ? null : activeUser();
+        if (!anonymous && !user) return alertNoUser();
+        const res = await call('GET', `/v1/rooms/${encodeURIComponent(id)}`, { user });
+        if (res.status === 200) rememberRoom(res.data);
+      }
+
+      function alertNoUser() {
+        logEntry({
+          cls: 's4',
+          badge: '—',
+          title: "Crée ou choisis d'abord un utilisateur",
+          sections: [],
+          open: true,
+        });
+      }
+
+      $('room-form').onsubmit = (event) => {
+        event.preventDefault();
+        createRoom({ body: roomBody() });
+      };
+      $('patch-form').onsubmit = async (event) => {
+        event.preventDefault();
+        if (!activeUser()) return alertNoUser();
+        const id = $('get-id').value.trim();
+        const ifMatch = $('patch-etag').value.trim();
+        const res = await call('PATCH', `/v1/rooms/${encodeURIComponent(id)}`, {
+          rawBody: $('patch-json').value,
+          headers: ifMatch ? { 'if-match': ifMatch } : {},
+        });
+        if (res.status === 200) rememberRoom(res.data);
+      };
+      $('room-raw-toggle').onclick = () => {
+        $('room-raw').hidden = !$('room-raw').hidden;
+      };
+      $('room-raw-send').onclick = () => createRoom({ rawBody: $('room-json').value });
+      $('get-form').onsubmit = (event) => {
+        event.preventDefault();
+        getRoom($('get-id').value.trim());
+      };
+      $('no-token').onclick = () => getRoom($('get-id').value.trim() || 'x', { anonymous: true });
+
+      // ---------- socket ----------
+      // One connection per user, so a broadcast can be seen arriving at several users at once
+      const sockets = new Map();
+      const activeSocket = () => sockets.get(state.activeId) ?? null;
+
+      function renderSockets() {
+        const list = $('sockets');
+        list.replaceChildren();
+        for (const [userId, socket] of sockets) {
+          const li = document.createElement('li');
+          li.className = userId === state.activeId ? 'active' : '';
+          const dot = document.createElement('span');
+          dot.className = `dot${socket.connected ? ' on' : ''}`;
+          const name = document.createElement('strong');
+          name.textContent = userName(userId);
+          const rooms = document.createElement('small');
+          rooms.textContent = socket.subscribed.size
+            ? `abonné à ${[...socket.subscribed].map((id) => roomName(id)).join(', ')}`
+            : socket.connected
+              ? 'connecté, aucune room'
+              : 'déconnecté';
+          li.append(dot, name, rooms);
+          li.onclick = () => selectUser(userId);
+          list.append(li);
+        }
+        const connected = activeSocket()?.connected ?? false;
+        $('sock-disconnect').disabled = !connected;
+        $('sub-btn').disabled = !connected;
+        $('unsub-btn').disabled = !connected;
+        $('msg-btn').disabled = !connected;
+      }
+
+      const roomName = (id) => state.rooms.find((r) => r.id === id)?.name ?? id.slice(0, 8);
+
+      const sockLog = (title, content, cls = 'sock', open = false) =>
+        logEntry({
+          cls,
+          badge: 'WS',
+          title,
+          sections: content === undefined ? [] : [['données', content]],
+          open,
+        });
+
+      $('sock-connect').onclick = async () => {
+        const user = activeUser();
+        if (!user) return alertNoUser();
+        sockets.get(user.id)?.disconnect();
+        const token = await freshToken(user);
+        const socket = io({
+          auth: { token },
+          transports: ['websocket'],
+          reconnection: false,
+          forceNew: true,
+        });
+        socket.subscribed = new Set();
+        sockets.set(user.id, socket);
+        const who = user.displayName;
+        socket.on('connect', () => {
+          sockLog(`connect · ${who}`, { socketId: socket.id });
+          renderSockets();
+        });
+        socket.on('connect_error', (err) => {
+          sockLog(`connect_error · ${who}`, { message: err.message }, 's4', true);
+          renderSockets();
+        });
+        socket.on('disconnect', (reason) => {
+          socket.subscribed.clear();
+          sockLog(`disconnect · ${who}`, { reason });
+          renderSockets();
+        });
+        // Anything the server pushes (dev:message now, room.changed later) shows up here
+        socket.onAny((event, ...args) => {
+          const data = args.length === 1 ? args[0] : args;
+          const from = data?.from ? ` de ${userName(data.from)}` : '';
+          sockLog(`← ${event}${from} · reçu par ${who}`, data, 'sock', true);
+        });
+        renderSockets();
+      };
+      $('sock-disconnect').onclick = () => activeSocket()?.disconnect();
+
+      $('sub-form').onsubmit = (event) => {
+        event.preventDefault();
+        const socket = activeSocket();
+        const roomId = $('sub-id').value.trim();
+        const who = activeUser().displayName;
+        sockLog(`→ subscribe · ${who}`, { roomId });
+        socket.emit('subscribe', { roomId }, (ack) => {
+          if (ack?.ok) socket.subscribed.add(roomId);
+          sockLog(`ack subscribe · ${who}`, ack, ack?.ok ? 'sock' : 's4', true);
+          renderSockets();
+        });
+      };
+      $('unsub-btn').onclick = () => {
+        const socket = activeSocket();
+        const roomId = $('sub-id').value.trim();
+        socket.emit('unsubscribe', { roomId });
+        socket.subscribed.delete(roomId);
+        sockLog(`→ unsubscribe · ${activeUser().displayName}`, { roomId });
+        renderSockets();
+      };
+
+      $('msg-form').onsubmit = (event) => {
+        event.preventDefault();
+        const socket = activeSocket();
+        const payload = { roomId: $('sub-id').value.trim(), text: $('msg-text').value };
+        const who = activeUser().displayName;
+        sockLog(`→ dev:broadcast · ${who}`, payload);
+        socket.emit('dev:broadcast', payload, (ack) =>
+          sockLog(`ack dev:broadcast · ${who}`, ack, ack?.ok ? 'sock' : 's4', !ack?.ok),
+        );
+        $('msg-text').value = '';
+      };
+
+      $('clear-log').onclick = () => $('log').replaceChildren();
+
+      renderUsers();
+      renderRooms();
+      renderSockets();
+    </script>
+  </body>
+</html>
