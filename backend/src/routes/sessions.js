@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { withTransaction } from '../db/tx.js';
 import { HttpProblem, problemSchema } from '../errors.js';
-import { openSession } from '../auth/sessions.js';
-import { findUserByEmail, toPublicUser } from '../users/repo.js';
+import { clearRefresh, openSession, rotateSession } from '../auth/sessions.js';
+import { requireAuth } from '../auth/guards.js';
+import { disconnectDevice } from '../auth/sockets.js';
+import { findUserByEmail, findUserById, toPublicUser } from '../users/repo.js';
 import { emailField, safeText } from '../validation.js';
 import { tooManyRequests } from '../security/rate-limit.js';
 
@@ -29,6 +31,11 @@ const userSchema = z.object({
   avatarUrl: z.string().nullable(),
   plan: z.enum(['free', 'premium']),
   providers: z.array(z.string()),
+});
+
+// 32 random bytes in base64url: anything else cannot be one of our tokens
+const refreshBody = z.object({
+  refreshToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 });
 
 export const sessionSchema = z.object({
@@ -83,4 +90,59 @@ export default async function sessionsRoutes(app) {
     );
     return { ...session, user: toPublicUser(user) };
   });
+
+  const refreshSchema = {
+    tags: ['auth'],
+    summary: 'Exchange a refresh token for a new session',
+    description:
+      'The refresh token is rotated: the old one stops working. Replaying the previous token ' +
+      'within 10 s gives 409 refresh_conflict (two concurrent refreshes); later, it is treated ' +
+      'as a theft: 401 refresh_token_reused and the session of that device is revoked.',
+    body: refreshBody,
+    response: { 200: sessionSchema, 401: problemSchema, 409: problemSchema },
+  };
+
+  app.post('/v1/sessions/refresh', { schema: refreshSchema }, async (request) => {
+    const result = await withTransaction(app.db, async (conn) => {
+      const rotation = await rotateSession(conn, app.tokens, request.body.refreshToken);
+      // Same transaction: the device row is locked, the account cannot vanish in between
+      if (rotation.outcome === 'rotated') rotation.user = await findUserById(conn, rotation.userId);
+      return rotation;
+    });
+
+    if (result.outcome === 'invalid') throw new HttpProblem(401, 'invalid_refresh_token');
+    if (result.outcome === 'conflict') throw new HttpProblem(409, 'refresh_conflict');
+    if (result.outcome === 'reused') {
+      // After the commit: withTransaction may replay its function, side effects go here
+      disconnectDevice(app, result.deviceId);
+      request.log.warn(
+        { userId: result.userId, deviceId: result.deviceId },
+        'refresh token reused, device session revoked',
+      );
+      throw new HttpProblem(401, 'refresh_token_reused');
+    }
+
+    return { ...result.session, user: toPublicUser(result.user) };
+  });
+
+  const logoutSchema = {
+    tags: ['auth'],
+    summary: 'Log out this device',
+    description:
+      'Revokes the refresh token of the device in the access token and closes its sockets. ' +
+      'The device stays listed. The access token itself stays valid until it expires (15 min). ' +
+      'Idempotent.',
+    security: [{ bearerAuth: [] }],
+    response: { 204: z.null(), 401: problemSchema },
+  };
+
+  app.delete(
+    '/v1/sessions/current',
+    { schema: logoutSchema, onRequest: requireAuth },
+    async (request, reply) => {
+      await clearRefresh(app.db, { userId: request.userId, deviceId: request.deviceId });
+      disconnectDevice(app, request.deviceId);
+      return reply.code(204).send();
+    },
+  );
 }
