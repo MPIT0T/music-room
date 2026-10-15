@@ -115,8 +115,22 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       future: _ready,
       builder: (context, snapshot) =>
           snapshot.connectionState == ConnectionState.done
-          ? Center(child: web.renderButton())
-          : const SizedBox(height: 44),
+          ? _webButton(context)
+          : const SizedBox(height: 48),
+    );
+  }
+
+  Widget _webButton(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      height: 48,
+      child: LayoutBuilder(
+        // The key re-renders Google's iframe when the system theme or the width changes
+        builder: (context, constraints) => Center(
+          key: ValueKey((dark, constraints.maxWidth)),
+          child: web.googleWebButton(dark: dark, width: constraints.maxWidth),
+        ),
+      ),
     );
   }
 }

@@ -1,3 +1,4 @@
 import 'package:flutter/widgets.dart';
 
-Widget renderButton() => throw StateError('renderButton is web only');
+Widget googleWebButton({required bool dark, required double width}) =>
+    throw StateError('googleWebButton is web only');
