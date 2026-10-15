@@ -6,6 +6,7 @@ import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
 import { readGoogleConfig, readMailConfig } from './config.js';
 import { createTokenService } from './auth/tokens.js';
+import { createGoogleVerifier } from './auth/google.js';
 import { registerSwagger } from './utils/docs.js';
 import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
@@ -40,6 +41,7 @@ export async function buildApp({
   redis = defaultRedis,
   logger = loggerOptions(),
   google = readGoogleConfig(),
+  googleVerifier = createGoogleVerifier({ audiences: google.audiences }),
   tokens = createTokenService(),
   mailConfig = readMailConfig(),
   mailer,
@@ -57,6 +59,7 @@ export async function buildApp({
   app.decorate('db', pool);
   app.decorate('redis', redis);
   app.decorate('google', google);
+  app.decorate('googleVerifier', googleVerifier);
   app.decorate('tokens', tokens);
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
