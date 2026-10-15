@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:music_room/auth/google_web_button.dart' as web;
 import 'package:music_room/core/config.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 
@@ -15,8 +14,9 @@ Future<void> _initGoogle() => _initialized ??= GoogleSignIn.instance.initialize(
   serverClientId: kIsWeb ? null : AppConfig.googleWebClientId,
 );
 
-/// "Continue with Google". Android: our button opens the account picker.
-/// Web: Google's own button (the only way allowed there), the result comes as an event.
+/// "Continue with Google", the same button on every platform.
+/// Android: opens the account picker. Web: authenticate() does not exist there, so the
+/// button asks for Google's One Tap prompt and the result comes as an event.
 class GoogleSignInButton extends StatefulWidget {
   const GoogleSignInButton({
     super.key,
@@ -37,6 +37,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
 
   Future<void>? _ready;
   StreamSubscription<GoogleSignInAuthenticationEvent>? _events;
+  Timer? _noPrompt;
   bool _busy = false;
 
   @override
@@ -56,14 +57,20 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   @override
   void dispose() {
     _events?.cancel();
+    _noPrompt?.cancel();
     super.dispose();
   }
 
-  void _onEvent(GoogleSignInAuthenticationEvent event) {
-    if (event is GoogleSignInAuthenticationEventSignIn) _exchange(event.user);
+  Future<void> _onEvent(GoogleSignInAuthenticationEvent event) async {
+    if (event is GoogleSignInAuthenticationEventSignIn) {
+      await _exchange(event.user);
+    }
+    _stopWaiting();
   }
 
-  Future<void> _tap() async {
+  Future<void> _tap() => kIsWeb ? _tapWeb() : _tapAndroid();
+
+  Future<void> _tapAndroid() async {
     setState(() => _busy = true);
     try {
       await _ready;
@@ -71,8 +78,29 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     } catch (e) {
       _onGoogleError(e);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _stopWaiting();
     }
+  }
+
+  Future<void> _tapWeb() async {
+    setState(() => _busy = true);
+    await _ready;
+    GoogleSignIn.instance.attemptLightweightAuthentication();
+    // Google sends nothing when it decides not to show One Tap (paused after the user
+    // closed it several times): without this, the button would spin forever
+    _noPrompt?.cancel();
+    _noPrompt = Timer(const Duration(seconds: 30), () {
+      if (!_busy) return;
+      _stopWaiting();
+      widget.onError(
+        'No Google window? Google pauses it after it is closed. Try again later.',
+      );
+    });
+  }
+
+  void _stopWaiting() {
+    _noPrompt?.cancel();
+    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _exchange(GoogleSignInAccount account) async {
@@ -87,6 +115,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   }
 
   void _onGoogleError(Object e) {
+    _stopWaiting();
     // Closing the account picker is a choice, not an error
     final canceled =
         e is GoogleSignInException &&
@@ -103,34 +132,11 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         icon: Icons.g_mobiledata_rounded,
       );
     }
-    if (!kIsWeb) {
-      return AppButton(
-        label: 'Continue with Google',
-        isLoading: _busy,
-        onPressed: _tap,
-        icon: Icons.g_mobiledata_rounded,
-      );
-    }
-    return FutureBuilder<void>(
-      future: _ready,
-      builder: (context, snapshot) =>
-          snapshot.connectionState == ConnectionState.done
-          ? _webButton(context)
-          : const SizedBox(height: 48),
-    );
-  }
-
-  Widget _webButton(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return SizedBox(
-      height: 48,
-      child: LayoutBuilder(
-        // The key re-renders Google's iframe when the system theme or the width changes
-        builder: (context, constraints) => Center(
-          key: ValueKey((dark, constraints.maxWidth)),
-          child: web.googleWebButton(dark: dark, width: constraints.maxWidth),
-        ),
-      ),
+    return AppButton(
+      label: 'Continue with Google',
+      isLoading: _busy,
+      onPressed: _tap,
+      icon: Icons.g_mobiledata_rounded,
     );
   }
 }
