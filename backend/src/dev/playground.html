@@ -130,6 +130,7 @@
       }
       .row > * {
         flex: 1;
+        min-width: 0;
       }
       .row > button {
         flex: 0 0 auto;
@@ -158,6 +159,12 @@
       }
       .list li.active {
         outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      h2 code {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
       }
       .list small,
       .hint {
@@ -246,6 +253,103 @@
       .dot.on {
         background: var(--ok);
       }
+      [hidden] {
+        display: none !important;
+      }
+      .left {
+        min-width: 0;
+      }
+      .tabs {
+        position: sticky;
+        top: 8px;
+        z-index: 1;
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        margin-bottom: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        /* Wraps instead of scrolling: a tab hidden off-screen is a tab nobody finds */
+        flex-wrap: wrap;
+      }
+      .tabs button {
+        flex: 1 0 auto;
+        padding: 6px 8px;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .tabs button:hover {
+        color: var(--ink);
+      }
+      .tabs button[aria-selected='true'] {
+        background: var(--bg);
+        box-shadow: inset 0 0 0 1px var(--line);
+        color: var(--tab-color, var(--ink));
+      }
+      .tabs [data-tab='post'] {
+        --tab-color: var(--accent);
+      }
+      .tabs [data-tab='get'] {
+        --tab-color: var(--ok);
+      }
+      .tabs [data-tab='patch'] {
+        --tab-color: var(--warn);
+      }
+      .tabs [data-tab='members'] {
+        --tab-color: var(--accent);
+      }
+      .tabs [data-tab='tracks'] {
+        --tab-color: var(--ok);
+      }
+      .tabs [data-tab='delete'] {
+        --tab-color: var(--err);
+      }
+      button.danger {
+        background: var(--err);
+        border-color: var(--err);
+        color: #fff;
+      }
+      #rooms {
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      #tracks {
+        max-height: 320px;
+        overflow-y: auto;
+      }
+      #tracks img {
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        object-fit: cover;
+        flex: none;
+        background: var(--code);
+      }
+      #tracks .track-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #tracks .track-text strong,
+      #tracks .track-text small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #tracks button {
+        padding: 2px 8px;
+        flex: none;
+      }
+      #player {
+        width: 100%;
+        margin-top: 10px;
+      }
     </style>
   </head>
   <body>
@@ -254,7 +358,7 @@
       <span>Dev uniquement. Chaque échange avec l'API apparaît à droite.</span>
     </header>
     <main>
-      <div>
+      <div class="left">
         <section>
           <h2>Utilisateurs de test</h2>
           <form id="user-form" class="row">
@@ -272,7 +376,29 @@
         </section>
 
         <section>
-          <h2>Créer une room</h2>
+          <h2>Room ciblée</h2>
+          <form id="get-form">
+            <label for="get-id"
+              >Id utilisé par GET, PATCH et DELETE (recopié dans Socket au clic)</label
+            >
+            <input id="get-id" placeholder="uuid" autocomplete="off" />
+          </form>
+          <ul id="rooms" class="list"></ul>
+          <p class="hint">Rooms vues depuis cette page. Clique pour la cibler et la relire.</p>
+        </section>
+
+        <nav class="tabs" role="tablist" aria-label="Fonctionnalité">
+          <button type="button" role="tab" data-tab="post">POST</button>
+          <button type="button" role="tab" data-tab="get">GET</button>
+          <button type="button" role="tab" data-tab="patch">PATCH</button>
+          <button type="button" role="tab" data-tab="delete">DELETE</button>
+          <button type="button" role="tab" data-tab="members">MEMBRES</button>
+          <button type="button" role="tab" data-tab="tracks">MORCEAUX</button>
+          <button type="button" role="tab" data-tab="socket">SOCKET</button>
+        </nav>
+
+        <section data-panel="post" role="tabpanel">
+          <h2>Créer une room · <code>POST /v1/rooms</code></h2>
           <form id="room-form">
             <label for="room-name">Nom</label>
             <input id="room-name" maxlength="100" placeholder="Soirée du samedi" />
@@ -321,30 +447,23 @@
           </form>
         </section>
 
-        <section>
-          <h2>Lire une room</h2>
-          <form id="get-form" class="row">
-            <div>
-              <label for="get-id">Id</label>
-              <input id="get-id" placeholder="uuid" />
-            </div>
-            <button class="primary" type="submit">GET</button>
-          </form>
+        <section data-panel="get" role="tabpanel">
+          <h2>Lire une room · <code>GET /v1/rooms/:id</code></h2>
+          <p class="hint">
+            Lit la room ciblée avec l'utilisateur actif. Une room privée renvoie 404 à qui n'est ni
+            propriétaire ni invité.
+          </p>
           <div class="actions">
+            <button class="primary" type="button" id="get-btn">GET</button>
             <button type="button" id="no-token">GET sans token</button>
           </div>
-          <ul id="rooms" class="list"></ul>
-          <p class="hint">
-            Rooms créées depuis cette page. Clique pour la relire avec l'utilisateur actif.
-          </p>
         </section>
 
-        <section>
-          <h2>Modifier une room (PATCH)</h2>
+        <section data-panel="patch" role="tabpanel">
+          <h2>Modifier une room · <code>PATCH /v1/rooms/:id</code></h2>
           <p class="hint">
-            Utilise l'id du champ « Lire une room ». Envoie seulement les champs à changer.
-            L'If-Match est rempli avec le dernier ETag reçu : vide-le pour voir le 428, mets une
-            vieille version pour voir le 412.
+            Envoie seulement les champs à changer. L'If-Match est rempli avec le dernier ETag reçu :
+            vide-le pour voir le 428, mets une vieille version pour voir le 412.
           </p>
           <form id="patch-form">
             <label for="patch-json">Corps JSON</label>
@@ -359,7 +478,75 @@
           </form>
         </section>
 
-        <section>
+        <section data-panel="delete" role="tabpanel">
+          <h2>Supprimer une room · <code>DELETE /v1/rooms/:id</code></h2>
+          <p class="hint">
+            Propriétaire seulement : 204 pour lui, 403 pour qui voit la room sans en être
+            propriétaire, 404 si elle est privée ou n'existe plus. Abonne d'abord un autre
+            utilisateur à la room (onglet Socket) pour le voir recevoir
+            <code>room.changed</code> avec <code>change: "deleted"</code>.
+          </p>
+          <div class="actions">
+            <button class="danger" type="button" id="delete-btn">DELETE</button>
+            <button type="button" id="delete-no-token">DELETE sans token</button>
+          </div>
+        </section>
+
+        <section data-panel="members" role="tabpanel">
+          <h2>Membres · <code>/v1/rooms/:id/members</code></h2>
+          <p class="hint">
+            On invite par id, ami ou non. Seul le propriétaire invite ; il retire n'importe qui, un
+            membre peut seulement se retirer lui-même. PUT et DELETE sont idempotents (204 à chaque
+            fois). Invite Bob dans une room privée, puis fais un GET avec Bob : 200 au lieu de 404.
+          </p>
+          <div class="row">
+            <div>
+              <label for="member-user">Utilisateur visé</label>
+              <select id="member-user"></select>
+            </div>
+          </div>
+          <label for="member-id">ou un id quelconque (prioritaire s'il est rempli)</label>
+          <input id="member-id" placeholder="uuid" autocomplete="off" />
+          <div class="actions">
+            <button class="primary" type="button" id="member-put">PUT inviter</button>
+            <button class="danger" type="button" id="member-delete">DELETE retirer</button>
+            <button type="button" id="member-list">GET la liste</button>
+          </div>
+        </section>
+
+        <section data-panel="tracks" role="tabpanel">
+          <h2>Catalogue · <code>/v1/tracks</code></h2>
+          <p class="hint">
+            La recherche passe par Jamendo et enregistre les résultats : on ne voit que nos ids,
+            jamais celui de Jamendo. Limitée par utilisateur (429 au-delà). Sans
+            <code>JAMENDO_CLIENT_ID</code> dans <code>.env</code>, réponse 503.
+          </p>
+          <form id="track-search-form" class="row">
+            <div>
+              <label for="track-q">Recherche (titre, artiste)</label>
+              <input id="track-q" maxlength="100" placeholder="lofi" autocomplete="off" />
+            </div>
+            <div style="flex: 0 0 70px">
+              <label for="track-limit">Nombre</label>
+              <input id="track-limit" type="number" min="1" max="50" value="10" />
+            </div>
+            <button class="primary" type="submit">GET /v1/tracks</button>
+          </form>
+          <ul id="tracks" class="list"></ul>
+          <p class="hint" id="tracks-hint">
+            Clique sur un morceau pour copier son id ci-dessous, ▶ pour demander son URL et
+            l'écouter.
+          </p>
+          <label for="track-id">Morceau visé (id)</label>
+          <input id="track-id" placeholder="uuid" autocomplete="off" />
+          <div class="actions">
+            <button type="button" id="track-stream">GET …/stream et écouter</button>
+            <button type="button" id="track-burst">Tester la limite (31 recherches)</button>
+          </div>
+          <audio id="player" controls preload="none" hidden></audio>
+        </section>
+
+        <section data-panel="socket" role="tabpanel">
           <h2>Temps réel (Socket.IO)</h2>
           <p class="hint">
             Une connexion par utilisateur : connecte Alice et Bob, abonne-les à la même room, puis
@@ -482,10 +669,21 @@
       async function call(
         method,
         url,
-        { body, rawBody, user = activeUser(), log = true, headers: extra = {} } = {},
+        {
+          body,
+          rawBody,
+          user = activeUser(),
+          log = true,
+          headers: extra = {},
+          checkGone = true,
+        } = {},
       ) {
         const headers = { ...extra };
-        if (user) headers.authorization = `Bearer ${await freshToken(user)}`;
+        if (user) {
+          const token = await freshToken(user);
+          if (token == null) return { status: 0, headers: new Headers(), data: null };
+          headers.authorization = `Bearer ${token}`;
+        }
         const payload = rawBody ?? (body === undefined ? undefined : JSON.stringify(body));
         if (payload !== undefined) headers['content-type'] = 'application/json';
 
@@ -534,6 +732,10 @@
             ],
           });
         }
+        // A remembered room answering 404 may be gone from the database: check, then forget it
+        const roomId = /^\/v1\/rooms\/([^/?]+)/.exec(url)?.[1];
+        if (checkGone && res.status === 404 && roomId)
+          await checkRoomGone(decodeURIComponent(roomId));
         return { status: res.status, headers: res.headers, data };
       }
 
@@ -545,14 +747,102 @@
         }
       };
 
+      // Returns null (and explains why in the log) when no token can be had
       async function freshToken(user) {
         if (Date.now() - user.issuedAt < TOKEN_TTL_MS) return user.accessToken;
-        const res = await fetch(`/dev/users/${user.id}/token`, { method: 'POST' });
-        if (!res.ok) throw new Error(`could not renew the token of ${user.displayName}`);
+        let res;
+        try {
+          res = await fetch(`/dev/users/${user.id}/token`, { method: 'POST' });
+        } catch (err) {
+          tokenProblem(
+            user,
+            'ERR',
+            `API injoignable (${err.message}). Elle redémarre peut-être : réessaie dans quelques secondes.`,
+          );
+          return null;
+        }
+        if (res.status === 404) {
+          // Remembered by this browser, but gone from the database (fclean, re, reset...)
+          forgetUser(user.id);
+          tokenProblem(
+            user,
+            404,
+            "Cet utilisateur n'existe plus en base (base recréée depuis ?). Il est retiré de la liste : recrée-le.",
+          );
+          return null;
+        }
+        if (!res.ok) {
+          tokenProblem(
+            user,
+            res.status,
+            "Renouvellement refusé. Regarde les logs de l'API (make logs).",
+          );
+          return null;
+        }
         user.accessToken = (await res.json()).accessToken;
         user.issuedAt = Date.now();
         save();
         return user.accessToken;
+      }
+
+      function tokenProblem(user, badge, why) {
+        logEntry({
+          cls: 's4',
+          badge,
+          title: `Pas de token pour ${user.displayName}`,
+          sections: [['pourquoi', why]],
+          open: true,
+        });
+      }
+
+      function forgetUser(id) {
+        // A user cannot be deleted while owning rooms (fk_rooms_owner): gone user, gone rooms
+        const owned = state.rooms.filter((r) => r.ownerId === id);
+        if (owned.length > 0) {
+          forgetRooms(
+            owned.map((r) => r.id),
+            'propriétaire disparu de la base, ses rooms avec lui',
+          );
+        }
+        state.users = state.users.filter((u) => u.id !== id);
+        if (state.activeId === id) state.activeId = state.users[0]?.id ?? null;
+        sockets.get(id)?.disconnect();
+        sockets.delete(id);
+        save();
+        renderUsers();
+        renderSockets();
+      }
+
+      // 404 does not always mean "deleted": a private room also answers 404 to a stranger.
+      // So ask again as its owner; only if the owner gets 404 too is the room really gone.
+      async function checkRoomGone(id) {
+        const room = state.rooms.find((r) => r.id === id);
+        if (!room) return;
+        const owner = state.users.find((u) => u.id === room.ownerId);
+        // Owner unknown to this page (seed data...): cannot tell hidden from deleted, keep it
+        if (!owner) return;
+        const res = await call('GET', `/v1/rooms/${encodeURIComponent(id)}`, {
+          user: owner,
+          log: false,
+          checkGone: false,
+        });
+        if (res.status === 404)
+          forgetRooms([id], 'même son propriétaire reçoit 404 : supprimée, ou base recréée');
+      }
+
+      function forgetRooms(ids, why) {
+        const names = state.rooms.filter((r) => ids.includes(r.id)).map((r) => r.name);
+        if (names.length === 0) return;
+        state.rooms = state.rooms.filter((r) => !ids.includes(r.id));
+        save();
+        renderRooms();
+        logEntry({
+          cls: 's4',
+          badge: '—',
+          title: `Retirée de la liste : ${names.join(', ')}`,
+          sections: [['pourquoi', `${why[0].toUpperCase()}${why.slice(1)}.`]],
+          open: true,
+        });
       }
 
       // ---------- users ----------
@@ -571,6 +861,7 @@
           list.append(li);
         }
         $('users-hint').hidden = state.users.length >= 2;
+        renderMemberChoices();
       }
 
       function selectUser(id) {
@@ -621,6 +912,7 @@
           pol.textContent = room.accessPolicy;
           const owner = document.createElement('small');
           owner.textContent = `par ${userName(room.ownerId)}`;
+          li.className = room.id === targetId() ? 'active' : '';
           li.append(name, vis, pol, owner);
           li.onclick = () => {
             $('get-id').value = room.id;
@@ -694,11 +986,191 @@
         $('room-raw').hidden = !$('room-raw').hidden;
       };
       $('room-raw-send').onclick = () => createRoom({ rawBody: $('room-json').value });
+      const targetId = () => $('get-id').value.trim();
+      // Enter in the id field reads the room, whatever the open tab
       $('get-form').onsubmit = (event) => {
         event.preventDefault();
-        getRoom($('get-id').value.trim());
+        getRoom(targetId());
       };
-      $('no-token').onclick = () => getRoom($('get-id').value.trim() || 'x', { anonymous: true });
+      $('get-btn').onclick = () => getRoom(targetId());
+      $('no-token').onclick = () => getRoom(targetId() || 'x', { anonymous: true });
+
+      async function deleteRoom(id, { anonymous = false } = {}) {
+        const user = anonymous ? null : activeUser();
+        if (!anonymous && !user) return alertNoUser();
+        const res = await call('DELETE', `/v1/rooms/${encodeURIComponent(id)}`, { user });
+        if (res.status === 204) {
+          state.rooms = state.rooms.filter((r) => r.id !== id);
+          save();
+          renderRooms();
+          $('patch-etag').value = '';
+        }
+      }
+      $('delete-btn').onclick = () => deleteRoom(targetId());
+      $('delete-no-token').onclick = () => deleteRoom(targetId() || 'x', { anonymous: true });
+
+      // ---------- members ----------
+      function renderMemberChoices() {
+        const select = $('member-user');
+        const previous = select.value;
+        select.replaceChildren();
+        for (const user of state.users) {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = user.displayName;
+          select.append(option);
+        }
+        if (state.users.some((u) => u.id === previous)) select.value = previous;
+      }
+      const memberTarget = () => $('member-id').value.trim() || $('member-user').value;
+      const membersUrl = (userId) => {
+        const base = `/v1/rooms/${encodeURIComponent(targetId())}/members`;
+        return userId === undefined ? base : `${base}/${encodeURIComponent(userId)}`;
+      };
+      $('member-put').onclick = () => {
+        if (!activeUser()) return alertNoUser();
+        call('PUT', membersUrl(memberTarget()));
+      };
+      $('member-delete').onclick = () => {
+        if (!activeUser()) return alertNoUser();
+        call('DELETE', membersUrl(memberTarget()));
+      };
+      $('member-list').onclick = () => {
+        if (!activeUser()) return alertNoUser();
+        call('GET', membersUrl());
+      };
+
+      // ---------- tracks ----------
+      const formatDuration = (ms) =>
+        ms == null
+          ? '?'
+          : `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
+
+      function renderTracks(tracks) {
+        const list = $('tracks');
+        list.replaceChildren();
+        for (const track of tracks) {
+          const li = document.createElement('li');
+          li.className = track.id === $('track-id').value.trim() ? 'active' : '';
+          const cover = document.createElement('img');
+          cover.alt = '';
+          cover.loading = 'lazy';
+          if (track.coverUrl) cover.src = track.coverUrl;
+          const text = document.createElement('div');
+          text.className = 'track-text';
+          const title = document.createElement('strong');
+          title.textContent = track.title;
+          const artist = document.createElement('small');
+          artist.textContent = `${track.artist} · ${track.id.slice(0, 8)}…`;
+          text.append(title, artist);
+          const duration = document.createElement('span');
+          duration.className = 'tag';
+          duration.textContent = formatDuration(track.durationMs);
+          const play = document.createElement('button');
+          play.type = 'button';
+          play.textContent = '▶';
+          play.title = 'GET /v1/tracks/:id/stream puis lecture';
+          play.onclick = (event) => {
+            event.stopPropagation();
+            selectTrack(track.id, tracks);
+            playTrack(track.id);
+          };
+          li.append(cover, text, duration, play);
+          li.onclick = () => selectTrack(track.id, tracks);
+          list.append(li);
+        }
+        $('tracks-hint').hidden = tracks.length === 0;
+      }
+
+      function selectTrack(id, tracks) {
+        $('track-id').value = id;
+        renderTracks(tracks);
+      }
+
+      let lastTracks = [];
+      const searchUrl = () => {
+        const params = new URLSearchParams({ q: $('track-q').value });
+        if ($('track-limit').value) params.set('limit', $('track-limit').value);
+        return `/v1/tracks?${params}`;
+      };
+
+      $('track-search-form').onsubmit = async (event) => {
+        event.preventDefault();
+        if (!activeUser()) return alertNoUser();
+        const res = await call('GET', searchUrl());
+        if (res.status === 200) {
+          lastTracks = res.data.tracks;
+          renderTracks(lastTracks);
+        }
+      };
+
+      // The stream URL is short-lived: asked again on every play, like the owner's phone will
+      async function playTrack(id) {
+        if (!activeUser()) return alertNoUser();
+        const res = await call('GET', `/v1/tracks/${encodeURIComponent(id)}/stream`);
+        const player = $('player');
+        if (res.status !== 200) {
+          player.pause();
+          return;
+        }
+        player.hidden = false;
+        player.src = res.data.url;
+        player.play().catch((err) =>
+          logEntry({
+            cls: 's4',
+            badge: '—',
+            title: 'Le navigateur refuse de lire ce flux',
+            sections: [['pourquoi', err.message]],
+            open: true,
+          }),
+        );
+      }
+      $('track-stream').onclick = () => playTrack($('track-id').value.trim() || 'x');
+
+      // Silent calls, one summary line: 31 entries in the log would hide everything else
+      $('track-burst').onclick = async () => {
+        if (!activeUser()) return alertNoUser();
+        const statuses = [];
+        for (let i = 0; i < 31; i++) {
+          const res = await call('GET', searchUrl(), { log: false });
+          statuses.push(res.status);
+          if (res.status === 429) break;
+        }
+        const counts = statuses.reduce((acc, s) => ({ ...acc, [s]: (acc[s] ?? 0) + 1 }), {});
+        const first429 = statuses.indexOf(429);
+        logEntry({
+          cls: first429 >= 0 ? 's4' : 's2',
+          badge: first429 >= 0 ? 429 : statuses.at(-1),
+          title: `${statuses.length} × GET /v1/tracks  · ${activeUser().displayName}`,
+          open: true,
+          sections: [
+            ['statuts', counts],
+            [
+              'lecture',
+              first429 >= 0
+                ? `Bloqué à la requête n°${first429 + 1}. Les recherches déjà faites dans la fenêtre comptent aussi. Un autre utilisateur n'est pas touché.`
+                : 'Jamais bloqué : la limite est plus haute que prévu ?',
+            ],
+          ],
+        });
+      };
+
+      // ---------- tabs ----------
+      // One feature on screen at a time; the last tab opened is remembered in this browser
+      const TABS = ['post', 'get', 'patch', 'delete', 'members', 'tracks', 'socket'];
+      function showTab(name) {
+        const tab = TABS.includes(name) ? name : 'post';
+        for (const button of document.querySelectorAll('[data-tab]')) {
+          button.setAttribute('aria-selected', String(button.dataset.tab === tab));
+        }
+        for (const panel of document.querySelectorAll('[data-panel]')) {
+          panel.hidden = panel.dataset.panel !== tab;
+        }
+        store.write('tab', tab);
+      }
+      for (const button of document.querySelectorAll('[data-tab]')) {
+        button.onclick = () => showTab(button.dataset.tab);
+      }
 
       // ---------- socket ----------
       // One connection per user, so a broadcast can be seen arriving at several users at once
@@ -748,6 +1220,7 @@
         if (!user) return alertNoUser();
         sockets.get(user.id)?.disconnect();
         const token = await freshToken(user);
+        if (token == null) return;
         const socket = io({
           auth: { token },
           transports: ['websocket'],
@@ -815,6 +1288,7 @@
 
       $('clear-log').onclick = () => $('log').replaceChildren();
 
+      showTab(store.read('tab', 'post'));
       renderUsers();
       renderRooms();
       renderSockets();
