@@ -91,8 +91,14 @@ shell: ## Shell inside the api container
 db: ## MariaDB client
 	$(STACK) exec db sh -c 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" "$$MARIADB_DATABASE"'
 
+# Public client ID read from .env (no secret), passed to Flutter at build time
+GOOGLE_CLIENT_ID_WEB = $(shell sed -n 's/^GOOGLE_CLIENT_ID_WEB=//p' .env 2>/dev/null)
+
 mobile: ## Launches the flutter app (hot reload)
-	cd mobile && flutter run
+	@# The phone (or emulator) reaches the api on its own localhost:3000; ignored without adb
+	-@adb reverse tcp:3000 tcp:3000 >/dev/null 2>&1
+	@# Fixed web port: Google only accepts the origins declared in the OAuth client
+	cd mobile && flutter run --web-port 5000 --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
 
 clean: ## Soft clean: removes containers, keeps DB and images
 	$(DEV) down --remove-orphans
