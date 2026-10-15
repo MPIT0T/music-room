@@ -78,7 +78,6 @@ export default async function roomMembersRoutes(app) {
 
     const removed = await removeMember(app.db, room.id, userId);
     if (removed) {
-      // A private room becomes invisible to them: cut the live feed before telling the others
       if (room.visibility === 'private') removeUserFromChannel(app.io, room.id, userId);
       emitRoomChanged(app.io, room, 'members');
     }

@@ -1243,7 +1243,6 @@
           sockLog(`disconnect · ${who}`, { reason });
           renderSockets();
         });
-        // Anything the server pushes (dev:message now, room.changed later) shows up here
         socket.onAny((event, ...args) => {
           const data = args.length === 1 ? args[0] : args;
           const from = data?.from ? ` de ${userName(data.from)}` : '';

@@ -8,7 +8,8 @@ import { HttpProblem } from '../src/errors.js';
 
 // Integration tests: real MariaDB and Redis (make test), fake Jamendo
 const RUN = randomUUID().slice(0, 8);
-const SEARCH_LIMIT = 5;
+// High enough for every search of `user` across the file; only `rateUser` reaches it
+const SEARCH_LIMIT = 20;
 
 const track = (n, title, artist) => ({
   provider: 'jamendo',
