@@ -20,3 +20,13 @@ export function safeText({ min = 0, max }) {
 
 // Normalized before validation, so lookups and rate-limit keys never depend on case or spaces
 export const emailField = z.string().trim().toLowerCase().max(255).pipe(z.email());
+
+// Text from a third party (Google profile name): cleaned instead of refused, the user cannot fix it.
+// Cut on code points, like VARCHAR(n) counts, so an emoji is never split in half.
+export function cleanText(value, max) {
+  const clean = String(value ?? '')
+    .normalize('NFC')
+    .replace(new RegExp(INVISIBLE.source, 'gu'), '')
+    .trim();
+  return [...clean].slice(0, max).join('').trim();
+}
