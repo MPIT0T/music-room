@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import z from 'zod';
 import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
-import { readGoogleConfig, readMailConfig } from './config.js';
+import { readCorsConfig, readGoogleConfig, readMailConfig } from './config.js';
 import { createTokenService } from './auth/tokens.js';
 import { createGoogleVerifier } from './auth/google.js';
 import { registerSwagger } from './utils/docs.js';
@@ -40,6 +41,7 @@ export async function buildApp({
   pool = defaultPool,
   redis = defaultRedis,
   logger = loggerOptions(),
+  cors = readCorsConfig(),
   google = readGoogleConfig(),
   googleVerifier = createGoogleVerifier({ audiences: google.audiences }),
   tokens = createTokenService(),
@@ -70,6 +72,15 @@ export async function buildApp({
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
     await Promise.allSettled([pool.end(), redis.quit()]);
+  });
+
+  // An allowlist, not '*': tokens travel in the Authorization header, so only our web app
+  // needs to read the answers. Registered before the routes so its hook covers all of them.
+  await app.register(fastifyCors, {
+    origin: cors.origins.length > 0 ? cors.origins : false,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 600,
   });
 
   app.setValidatorCompiler(validatorCompiler);

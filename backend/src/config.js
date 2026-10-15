@@ -55,3 +55,24 @@ export function readMailConfig(env = process.env) {
     },
   };
 }
+
+// Exact browser origins allowed to call the API (Flutter web). Empty: CORS stays off.
+const origin = z
+  .string()
+  .refine((value) => URL.canParse(value) && new URL(value).origin === value, {
+    message: 'expected an origin: scheme://host[:port], no path or trailing slash',
+  });
+const corsEnv = z.object({
+  CORS_ORIGINS: z.preprocess(
+    (v) =>
+      (blank(v) ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    z.array(origin),
+  ),
+});
+
+export function readCorsConfig(env = process.env) {
+  return { origins: corsEnv.parse(env).CORS_ORIGINS };
+}
