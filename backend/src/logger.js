@@ -31,6 +31,23 @@ export function clientHeader(value) {
   return clean === '' ? 'unknown' : clean.slice(0, MAX_HEADER_LENGTH);
 }
 
+// Contract v1.1: "MusicRoom/<version> (<platform>; <model>)". Anything else gives "unknown":
+// a browser (Flutter web cannot set User-Agent), curl, or a client lying about itself
+const USER_AGENT = /^MusicRoom\/([^\s()]+) \((android|ios|web); ([^)]+)\)/;
+const MAX_USER_AGENT_LENGTH = 256;
+
+export function parseUserAgent(value) {
+  const first = Array.isArray(value) ? value[0] : value;
+  // Bounded before matching, so the regex never runs on an oversized header
+  const header = typeof first === 'string' ? first.slice(0, MAX_USER_AGENT_LENGTH) : '';
+  const [, appVersion, platform, model] = USER_AGENT.exec(header) ?? [];
+  return {
+    platform: clientHeader(platform),
+    model: clientHeader(model),
+    appVersion: clientHeader(appVersion),
+  };
+}
+
 // pino options, passed to Fastify as `logger`
 export function loggerOptions({ level = process.env.LOG_LEVEL ?? 'info', stream } = {}) {
   return {
@@ -81,12 +98,7 @@ export const loggingOptions = {
   logController: new AppLogController(),
   // Every log line written during a request carries the client context
   childLoggerFactory(logger, bindings, opts, rawReq) {
-    const context = {
-      platform: clientHeader(rawReq.headers['x-platform']),
-      device: clientHeader(rawReq.headers['x-device']),
-      appVersion: clientHeader(rawReq.headers['x-app-version']),
-    };
-    return logger.child({ ...bindings, ...context }, opts);
+    return logger.child({ ...bindings, ...parseUserAgent(rawReq.headers['user-agent']) }, opts);
   },
 };
 

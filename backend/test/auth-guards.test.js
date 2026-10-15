@@ -1,9 +1,11 @@
 import { test } from 'node:test';
+import { Writable } from 'node:stream';
 import assert from 'node:assert/strict';
 import { SignJWT } from 'jose';
 import { buildApp } from '../src/app.js';
 import { createTokenService } from '../src/auth/tokens.js';
 import { requireAuth } from '../src/auth/guards.js';
+import { loggerOptions } from '../src/logger.js';
 
 const SECRET = 'a'.repeat(32);
 const tokens = createTokenService(SECRET);
@@ -69,7 +71,16 @@ test('a missing or malformed Authorization header is refused with 401 unauthoriz
   const { app, calls } = await appWithProtectedRoute(t);
   const token = await tokens.signAccessToken({ userId: 'user-1', deviceId: 'device-1' });
 
-  for (const authorization of [undefined, '', 'Bearer', 'Bearer ', `Basic ${token}`, token]) {
+  for (const authorization of [
+    undefined,
+    '',
+    'Bearer',
+    'Bearer ',
+    `Basic ${token}`,
+    token,
+    `Bearer ${token} ${token}`,
+    `Bearer  ${token}`,
+  ]) {
     assertUnauthorized(await whoami(app, authorization));
   }
   assert.equal(calls.handler, 0);
@@ -108,4 +119,49 @@ test('routes without the hook stay public', async (t) => {
   const res = await app.inject({ url: '/health' });
 
   assert.equal(res.statusCode, 200);
+});
+
+test('the scheme name is case-insensitive', async (t) => {
+  const { app } = await appWithProtectedRoute(t);
+  const token = await tokens.signAccessToken({ userId: 'user-1', deviceId: 'device-1' });
+
+  for (const scheme of ['bearer', 'BEARER']) {
+    assert.equal((await whoami(app, `${scheme} ${token}`)).statusCode, 200, scheme);
+  }
+});
+
+test('every log line after authentication carries the user and device, never the token', async (t) => {
+  const chunks = [];
+  const stream = new Writable({
+    write(chunk, _enc, done) {
+      chunks.push(chunk.toString());
+      done();
+    },
+  });
+  const app = await buildApp({
+    pool: okPool,
+    redis: okRedis,
+    tokens,
+    logger: loggerOptions({ stream }),
+  });
+  t.after(() => app.close());
+  app.get('/v1/whoami', { onRequest: requireAuth }, async (request) => {
+    request.log.info('inside the handler');
+    return {};
+  });
+  const token = await tokens.signAccessToken({ userId: 'user-1', deviceId: 'device-1' });
+
+  await whoami(app, `Bearer ${token}`);
+
+  const lines = chunks
+    .join('')
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l));
+  const tagged = (msg) => lines.find((l) => l.msg === msg);
+  for (const msg of ['inside the handler', 'request completed']) {
+    assert.equal(tagged(msg)?.userId, 'user-1', msg);
+    assert.equal(tagged(msg)?.deviceId, 'device-1', msg);
+  }
+  assert.ok(!chunks.join('').includes(token));
 });

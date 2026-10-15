@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Writable } from 'node:stream';
 import { buildApp } from '../src/app.js';
-import { clientHeader, loggerOptions } from '../src/logger.js';
+import { clientHeader, loggerOptions, parseUserAgent } from '../src/logger.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const okPool = { query: async () => [[{ 1: 1 }]], end: async () => {} };
@@ -60,7 +60,7 @@ test('the completion line has the route pattern, status, duration and client con
   await app.inject({
     method: 'POST',
     url: '/v1/echo/42?page=2',
-    headers: { 'x-platform': 'android', 'x-device': 'D'.repeat(500) },
+    headers: { 'user-agent': 'MusicRoom/1.2.0 (android; Pixel 7)' },
     payload: {},
   });
 
@@ -70,8 +70,8 @@ test('the completion line has the route pattern, status, duration and client con
   assert.equal(line.statusCode, 200);
   assert.equal(typeof line.durationMs, 'number');
   assert.equal(line.platform, 'android');
-  assert.equal(line.device, 'D'.repeat(64));
-  assert.equal(line.appVersion, 'unknown');
+  assert.equal(line.model, 'Pixel 7');
+  assert.equal(line.appVersion, '1.2.0');
 });
 
 test('no secret reaches the logs, even when a route logs everything', async (t) => {
@@ -128,4 +128,36 @@ test('clientHeader keeps headers short, printable and never empty', () => {
   assert.equal(clientHeader(['ios', 'android']), 'ios');
   assert.equal(clientHeader('1.2.0\n{"level":60}'), '1.2.0{"level":60}');
   assert.equal(clientHeader('x'.repeat(100)).length, 64);
+});
+
+test('parseUserAgent reads the contract format and nothing else', () => {
+  const unknown = { platform: 'unknown', model: 'unknown', appVersion: 'unknown' };
+
+  assert.deepEqual(parseUserAgent('MusicRoom/1.2.0 (ios; iPhone 15)'), {
+    platform: 'ios',
+    model: 'iPhone 15',
+    appVersion: '1.2.0',
+  });
+  assert.deepEqual(parseUserAgent(['MusicRoom/2.0.0 (web; Chrome)', 'other']).platform, 'web');
+  for (const header of [
+    undefined,
+    '',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    'curl/8.5.0',
+    'MusicRoom/1.2.0 (windows; PC)',
+  ]) {
+    assert.deepEqual(parseUserAgent(header), unknown, String(header));
+  }
+});
+
+test('parseUserAgent output is bounded and printable', () => {
+  // Cut at 256 characters before matching: the closing parenthesis is lost, nothing is parsed
+  const long = parseUserAgent(`MusicRoom/1.2.0 (android; ${'M'.repeat(500)})`);
+  assert.equal(long.model, 'unknown');
+
+  const wide = parseUserAgent(`MusicRoom/1.2.0 (android; ${'M'.repeat(200)})`);
+  assert.equal(wide.model, 'M'.repeat(64));
+
+  const dirty = parseUserAgent('MusicRoom/1.2.0 (android; Pixel\n{"level":60})');
+  assert.equal(dirty.model, 'Pixel{"level":60}');
 });
