@@ -66,6 +66,8 @@ export async function buildApp({
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
   app.decorate('passwords', passwords);
+  // Read by server.js to enable the dev socket events along with the playground
+  app.decorate('devTools', devTools);
   app.decorate('limits', limits);
   app.decorate('rateLimiter', rateLimiter ?? createRateLimiter(redis, { log: app.log }));
   app.decorate(

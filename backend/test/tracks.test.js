@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { buildApp } from '../src/app.js';
 import { limits } from '../src/security/limits.js';
-import { FakeMusicClient } from '../src/music/fake.js';
+import { FakeMusicClient } from './helpers/fake-music.js';
 import { HttpProblem } from '../src/errors.js';
 
 // Integration tests: real MariaDB and Redis (make test), fake Jamendo
