@@ -90,9 +90,6 @@ export async function listMembers(db, roomId) {
   }));
 }
 
-// true only for the call that actually added the row. Not ON DUPLICATE KEY: mysql2 sets
-// CLIENT_FOUND_ROWS, so an unchanged duplicate also reports 1 affected row. Not INSERT IGNORE:
-// it would turn the fk_rm_user violation (unknown user, 404) into a silent warning.
 export async function addMember(db, roomId, userId) {
   try {
     await db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [roomId, userId]);
