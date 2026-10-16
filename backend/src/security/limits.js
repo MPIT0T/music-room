@@ -8,4 +8,6 @@ export const limits = {
   login: { name: 'login', limit: 5, windowSeconds: 15 * 60 },
   // Credential stuffing: one IP trying many emails. Generous, a 42 cluster shares one IP
   loginIp: { name: 'login-ip', limit: 50, windowSeconds: 15 * 60 },
+  // Each search is a Jamendo call on our client ID: typing with debounce stays well below
+  trackSearch: { name: 'track-search', limit: 30, windowSeconds: 60 },
 };
