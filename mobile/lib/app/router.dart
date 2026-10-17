@@ -19,6 +19,12 @@ abstract final class AppRouterConfig {
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
+      GoRoute(
+        path: '/room/:id',
+        builder: (context, state) {
+          return const PlayerScreen();
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
