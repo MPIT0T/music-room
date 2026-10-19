@@ -116,6 +116,9 @@ ThemeData buildAppTheme(Brightness brightness) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    appBarTheme: AppBarThemeData(
+      backgroundColor: isDark ? AppPalette.darkBg : AppPalette.lightBg,
+    ),
     scaffoldBackgroundColor: isDark ? AppPalette.darkBg : AppPalette.lightBg,
     textTheme: _textTheme.apply(
       bodyColor: scheme.onSurface,
