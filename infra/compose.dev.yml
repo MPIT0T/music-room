@@ -13,6 +13,8 @@ services:
       target: dev
     environment:
       NODE_ENV: development
+      # Flutter web runs on a fixed port (make mobile-web): Google only accepts declared origins
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5000}
     ports:
       - "3000:3000"
     volumes:

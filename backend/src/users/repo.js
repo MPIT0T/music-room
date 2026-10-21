@@ -12,6 +12,20 @@ export async function findUserByEmail(db, email) {
   return row ?? null;
 }
 
+// Same columns, written out: the SQL lint rule forbids building a query with ${}
+export async function findUserById(db, id) {
+  const [[row]] = await db.query(
+    `SELECT u.id, u.email, u.password_hash, u.email_verified_at, u.display_name, u.avatar_url, u.plan,
+            GROUP_CONCAT(o.provider) AS oauth_providers
+     FROM users u
+     LEFT JOIN oauth_accounts o ON o.user_id = u.id
+     WHERE u.id = ?
+     GROUP BY u.id`,
+    [id],
+  );
+  return row ?? null;
+}
+
 // The "user" object of the contract
 export function toPublicUser(row) {
   const oauth = row.oauth_providers ? row.oauth_providers.split(',') : [];
