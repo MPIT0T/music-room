@@ -13,7 +13,6 @@ export function authenticateSocket(tokens, log) {
       next();
     } catch (err) {
       log?.debug({ reason: err.message }, 'socket handshake rejected');
-      // Same answer whatever the reason: the client only needs to know it must refresh
       next(new Error('unauthorized'));
     }
   };
@@ -26,7 +25,6 @@ export function socketSetup(httpServer, { tokens, db, log, devTools = false }) {
   io.use(authenticateSocket(tokens, log));
 
   io.on('connection', (socket) => {
-    // Lets logout and password reset disconnect one device or all of a user's devices, on every instance
     socket.join([`user:${socket.data.userId}`, `device:${socket.data.deviceId}`]);
 
     socket.on('subscribe', subscribeHandler(socket, db, log));
