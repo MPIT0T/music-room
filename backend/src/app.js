@@ -5,7 +5,7 @@ import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
-import { readGoogleConfig, readMailConfig, readMusicConfig } from './config.js';
+import { readCorsConfig, readGoogleConfig, readMailConfig, readMusicConfig } from './config.js';
 import { JamendoClient } from './music/jamendo.js';
 import { createTokenService } from './auth/tokens.js';
 import { createGoogleVerifier } from './auth/google.js';
