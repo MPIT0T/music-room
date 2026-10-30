@@ -5,7 +5,8 @@ import { registerProblemHandlers } from './errors.js';
 import { pool as defaultPool } from './db/pool.js';
 import { redis as defaultRedis } from './utils/redis.js';
 import { loggerOptions, loggingOptions, registerRequestLogging } from './logger.js';
-import { readCorsConfig, readGoogleConfig, readMailConfig } from './config.js';
+import { readCorsConfig, readGoogleConfig, readMailConfig, readMusicConfig } from './config.js';
+import { JamendoClient } from './music/jamendo.js';
 import { createTokenService } from './auth/tokens.js';
 import { createGoogleVerifier } from './auth/google.js';
 import { registerSwagger } from './utils/docs.js';
@@ -13,6 +14,8 @@ import { createMailer } from './mail/mailer.js';
 import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
 import roomsRoutes from './routes/rooms.js';
+import roomMembersRoutes from './routes/room-members.js';
+import tracksRoutes from './routes/tracks.js';
 import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
 import { createRateLimiter } from './security/rate-limit.js';
@@ -52,6 +55,8 @@ export async function buildApp({
   devTools = process.env.NODE_ENV === 'development',
   limits = defaultLimits,
   rateLimiter,
+  // Catalog provider (search, metadata, stream URLs); tests pass a FakeMusicClient
+  music,
 } = {}) {
   const app = Fastify({ ...loggingOptions, logger }).withTypeProvider();
   registerRequestLogging(app);
@@ -66,8 +71,14 @@ export async function buildApp({
   // Built here because the default mailer logs through app.log, which only exists now
   app.decorate('mailer', mailer ?? createMailer(mailConfig, { log: app.log }));
   app.decorate('passwords', passwords);
+  // Read by server.js to enable the dev socket events along with the playground
+  app.decorate('devTools', devTools);
   app.decorate('limits', limits);
   app.decorate('rateLimiter', rateLimiter ?? createRateLimiter(redis, { log: app.log }));
+  app.decorate(
+    'music',
+    music ?? new JamendoClient({ clientId: readMusicConfig().jamendoClientId, log: app.log }),
+  );
   // The app closes what it was given. onClose hooks run last-registered-first,
   // so the socket layer (registered later in server.js) is already closed here.
   app.addHook('onClose', async () => {
@@ -107,6 +118,8 @@ export async function buildApp({
   // After registerSwagger, so these routes appear in /docs
   await app.register(usersRoutes);
   await app.register(roomsRoutes);
+  await app.register(roomMembersRoutes);
+  await app.register(tracksRoutes);
   if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);
 

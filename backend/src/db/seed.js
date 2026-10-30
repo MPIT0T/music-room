@@ -1,7 +1,7 @@
-import { setTimeout as sleep } from 'node:timers/promises';
 import { pool } from './pool.js';
 import { withTransaction } from './tx.js';
 import { passwords } from '../auth/passwords.js';
+import { JamendoClient } from '../music/jamendo.js';
 
 const password = process.env.SEED_PASSWORD;
 if (!password || password.length < 8) {
@@ -83,45 +83,15 @@ const ROOMS = [
   },
 ];
 
-// Jamendo answers HTTP 200 even on errors: the real status is in body.headers
-async function fetchJamendoTracks(tag) {
-  const params = new URLSearchParams({
-    client_id: clientId,
-    format: 'json',
-    limit: String(TRACKS_PER_GENRE),
-    tags: tag,
-    order: 'popularity_total',
-  });
-  const res = await fetch(`https://api.jamendo.com/v3.0/tracks/?${params}`);
-  if (!res.ok) throw new Error(`Jamendo request failed (HTTP ${res.status}) for tag ${tag}`);
-  const body = await res.json();
-  if (body.headers?.status !== 'success') {
-    throw new Error(`Jamendo error for tag ${tag}: ${body.headers?.error_message}`);
-  }
-  return body;
-}
+const music = new JamendoClient({ clientId });
 
-// Jamendo sometimes answers "success" with 0 results for a tag that has tracks: retry a few times
-async function topJamendoTracks(tag, attempts = 4) {
-  let body;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    body = await fetchJamendoTracks(tag);
-    if (body.results.length >= TRACKS_PER_GENRE) break;
-    if (attempt === attempts) {
-      throw new Error(
-        `not enough Jamendo tracks for tag ${tag} after ${attempts} tries: ${JSON.stringify(body.headers)}`,
-      );
-    }
-    await sleep(1000 * attempt);
+// most popular playable tracks of a genre, keyed `${tag}-${rank}` for the ROOMS above
+async function topJamendoTracks(tag) {
+  const tracks = await music.topTracks(tag, { limit: TRACKS_PER_GENRE });
+  if (tracks.length < TRACKS_PER_GENRE) {
+    throw new Error(`not enough playable Jamendo tracks for tag ${tag} (got ${tracks.length})`);
   }
-  return body.results.map((t, rank) => ({
-    key: `${tag}-${rank}`,
-    providerTrackId: String(t.id),
-    title: t.name,
-    artist: t.artist_name,
-    durationMs: t.duration * 1000,
-    coverUrl: t.image || null,
-  }));
+  return tracks.map((t, rank) => ({ ...t, key: `${tag}-${rank}` }));
 }
 
 const emails = USERS.map((u) => u.email);

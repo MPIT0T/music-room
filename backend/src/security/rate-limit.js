@@ -62,7 +62,6 @@ export function tooManyRequests(retryAfter) {
   return new HttpProblem(429, 'rate_limited', { headers: { 'retry-after': String(retryAfter) } });
 }
 
-// preHandler: runs after body validation, so valueOf can read the normalized body
 export function rateLimit(rule, valueOf) {
   return async (request) => {
     const { allowed, retryAfter } = await request.server.rateLimiter.consume(

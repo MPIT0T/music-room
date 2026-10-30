@@ -9,6 +9,7 @@ const DEFAULTS = {
 // More precise codes when MariaDB names a known constraint or index
 const BY_CONSTRAINT = {
   fk_rooms_owner: [409, 'owns_rooms'],
+  fk_rm_user: [404, 'user_not_found'],
   email: [409, 'email_taken'],
 };
 

@@ -76,3 +76,15 @@ const corsEnv = z.object({
 export function readCorsConfig(env = process.env) {
   return { origins: corsEnv.parse(env).CORS_ORIGINS };
 }
+
+// Optional: without it the API starts and the music routes answer 503 (CI, tests)
+const musicEnv = z.object({
+  JAMENDO_CLIENT_ID: z.preprocess(
+    blank,
+    z.string().regex(/^\w+$/, 'expected the client ID from devportal.jamendo.com').optional(),
+  ),
+});
+
+export function readMusicConfig(env = process.env) {
+  return { jamendoClientId: musicEnv.parse(env).JAMENDO_CLIENT_ID };
+}
