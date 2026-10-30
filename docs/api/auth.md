@@ -242,7 +242,8 @@ Règles de liaison de compte :
 | 400 | `unsupported_provider` | `provider` ≠ `google` |
 | 401 | `invalid_oauth_token` | signature, expiration ou audience invalide |
 | 403 | `oauth_email_not_verified` | Google indique un email non vérifié |
-| 503 | `oauth_unavailable` | client ID non configuré côté serveur |
+| 409 | `already_linked` | l'email Google est celui d'un compte qui a déjà un **autre** compte Google lié |
+| 503 | `oauth_unavailable` | client ID non configuré côté serveur, ou clés publiques de Google injoignables |
 
 ## `POST /v1/sessions/refresh` : renouveler les tokens
 
