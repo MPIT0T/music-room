@@ -5,3 +5,6 @@ node_modules/
 dist/
 .idea/
 *.log
+
+# Claude Code (contexte perso)
+CLAUDE.local.md
