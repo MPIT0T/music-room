@@ -16,6 +16,8 @@ class SessionStore {
   Future<String?> refreshToken() => _storage.read(key: _refresh);
   Future<String?> deviceId() => _storage.read(key: _device);
 
+  Future<bool> hasSession() async => await refreshToken() != null;
+
   /// Stores a `session` object of the contract (login, OAuth, refresh).
   Future<void> save(Map<String, dynamic> session) async {
     await _storage.write(key: _access, value: session['accessToken'] as String);
