@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
+import 'package:music_room/auth/auth_service.dart';
+import 'package:music_room/core/services.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,6 +18,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
   bool _isLoading = false;
+  bool _sent = false;
 
   @override
   void dispose() {
@@ -27,10 +30,27 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_password.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Use at least 8 characters for the password.'),
+        ),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1)); // API CALL
-    if (!mounted) return;
-    context.go('/discover');
+    try {
+      await authService.signup(_email.text, _password.text, _name.text);
+      // The account cannot log in before the email is verified (subject V.1)
+      if (mounted) setState(() => _sent = true);
+    } on AuthFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -81,10 +101,21 @@ class _SignupScreenState extends State<SignupScreen> {
                   textInputAction: .done,
                   onFieldSubmit: (_) => _submit(),
                 ),
+                if (_sent) ...[
+                  const SizedBox(height: Space.lg),
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(Space.cardGap),
+                      child: Text(
+                        'Check your inbox: open the link we sent to verify your email, then log in.',
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 AppButton(
-                  label: 'Create account',
-                  onPressed: () => _submit(),
+                  label: _sent ? 'Go to login' : 'Create account',
+                  onPressed: _sent ? () => context.go('/login') : _submit,
                   isLoading: _isLoading,
                 ),
                 const SizedBox(height: Space.lg),
