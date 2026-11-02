@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { trackResponse } from '../tracks/schemas.js';
 import { safeText } from '../validation.js';
 
 const isoDate = z.codec(z.iso.datetime({ offset: true }), z.date(), {
@@ -82,4 +83,49 @@ export const membersResponse = z.object({
       joinedAt: isoDate,
     }),
   ),
+});
+
+export const queueItem = z.object({
+  id: z.uuid().describe('Queue item id (not the track id): used to vote'),
+  track: trackResponse,
+  addedBy: z.uuid().nullable().describe('null if that user deleted their account'),
+  votes: z.number().int(),
+  myVote: z.boolean(),
+  createdAt: isoDate,
+});
+
+export const queueResponse = z.object({
+  playing: queueItem.nullable(),
+  queue: z.array(queueItem),
+});
+
+export const addTrackBody = z.object({
+  trackId: z.uuid().describe('Our track id, from GET /v1/tracks'),
+});
+
+export const itemParams = z.object({
+  id: z.string().max(64),
+  itemId: z.uuid(),
+});
+
+export const playbackBody = z.object({
+  playing: z.boolean(),
+  positionMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60 * 60 * 1000)
+    .describe('Position in the playing track when the owner phone sent it'),
+});
+
+export const playbackState = z.object({
+  roomTrackId: z.uuid().describe('The playing queue item'),
+  trackId: z.uuid(),
+  playing: z.boolean(),
+  positionMs: z.number().int(),
+  at: isoDate.describe('Server time of the update: add (now - at) to positionMs while playing'),
+});
+
+export const playbackResponse = z.object({
+  playback: playbackState.nullable().describe('null when nothing plays'),
 });

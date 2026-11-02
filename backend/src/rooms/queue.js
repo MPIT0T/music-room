@@ -4,6 +4,7 @@ import { publicTrack } from '../tracks/repo.js';
 function toItem(row) {
   return {
     id: row.id,
+    status: row.status,
     track: publicTrack({
       id: row.track_id,
       title: row.title,
@@ -53,6 +54,15 @@ export async function findItem(db, roomId, itemId, userId) {
   return row ? toItem(row) : null;
 }
 
+// The playing item, or null: what the playback state refers to
+export async function findPlaying(db, roomId) {
+  const [[row]] = await db.query(
+    "SELECT id, track_id FROM room_tracks WHERE room_id = ? AND status = 'playing'",
+    [roomId],
+  );
+  return row ? { id: row.id, trackId: row.track_id } : null;
+}
+
 // uq_room_active_track rejects a track already queued or playing: we return that item instead.
 // Two tries, because the duplicate can turn 'played' (skip) between our INSERT and our SELECT.
 export async function addTrack(db, roomId, trackId, userId) {
@@ -96,7 +106,8 @@ export async function unvote(db, itemId, userId) {
 }
 
 // Ends the playing item and starts the most voted queued one (same order as listQueue).
-// Returns the new playing item id, null if the queue was empty, undefined if the room is gone.
+// Returns the new playing item ({ id, trackId }), null if the queue was empty, undefined if the
+// room is gone.
 export async function skip(db, roomId) {
   return withTransaction(db, async (conn) => {
     // Lock the room row: concurrent skips of the same room run one after the other
@@ -108,7 +119,7 @@ export async function skip(db, roomId) {
       [roomId],
     );
     const [[next]] = await conn.query(
-      `SELECT rt.id
+      `SELECT rt.id, rt.track_id
          FROM room_tracks rt
         WHERE rt.room_id = ? AND rt.status = 'queued'
         ORDER BY (SELECT COUNT(*) FROM votes v WHERE v.room_track_id = rt.id) DESC,
@@ -118,6 +129,6 @@ export async function skip(db, roomId) {
     );
     if (!next) return null;
     await conn.query("UPDATE room_tracks SET status = 'playing' WHERE id = ?", [next.id]);
-    return next.id;
+    return { id: next.id, trackId: next.track_id };
   });
 }

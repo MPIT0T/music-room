@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "lint": "^1.2.2",
+    "prettier": "^3.9.10"
+  }
+}
