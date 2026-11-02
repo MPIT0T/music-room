@@ -57,6 +57,7 @@ test('POST /v1/rooms with only a name creates a public room owned by the caller'
   assert.equal(room.visibility, 'public');
   assert.equal(room.accessPolicy, 'everyone');
   assert.equal(room.window, null);
+  assert.equal(room.place, null);
   assert.equal(room.beaconMinor, null);
   assert.equal(room.version, 0);
   assert.equal(res.headers.etag, '"0"');
@@ -66,20 +67,22 @@ test('POST /v1/rooms with only a name creates a public room owned by the caller'
   assert.deepEqual(row, { owner_id: users.owner.id, name: 'Soirée du samedi' });
 });
 
-test('POST /v1/rooms stores every field, window dates included', async () => {
+test('POST /v1/rooms stores every field, window dates and place included', async () => {
   const res = await createRoom(users.owner, {
     name: 'Concert',
     description: 'Rock only',
     visibility: 'private',
-    accessPolicy: 'time_window',
+    accessPolicy: 'place_time',
     window: { start: '2026-11-01T20:00:00+01:00', end: '2026-11-02T02:00:00+01:00' },
+    place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
   });
 
   assert.equal(res.statusCode, 201);
   const room = res.json();
   assert.equal(room.description, 'Rock only');
   assert.equal(room.visibility, 'private');
-  assert.equal(room.accessPolicy, 'time_window');
+  assert.equal(room.accessPolicy, 'place_time');
+  assert.deepEqual(room.place, { lat: 45.7578, lng: 4.832, radiusM: 200 });
   // Sent with an offset, stored and returned in UTC
   assert.deepEqual(room.window, {
     start: '2026-11-01T19:00:00.000Z',
@@ -95,7 +98,11 @@ test('POST /v1/rooms refuses invalid bodies with 400 naming the field', async ()
     [{ name: 'evil\u202Eroom' }, 'name'],
     [{ name: 'Room', visibility: 'hidden' }, 'visibility'],
     [{ name: 'Room', accessPolicy: 'geo_time' }, 'accessPolicy'],
-    [{ name: 'Room', accessPolicy: 'time_window' }, 'window'],
+    [{ name: 'Room', accessPolicy: 'time_window' }, 'accessPolicy'],
+    [{ name: 'Room', accessPolicy: 'place_time' }, 'window'],
+    [{ name: 'Room', accessPolicy: 'place_time' }, 'place'],
+    [{ name: 'Room', place: { lat: 91, lng: 0, radiusM: 100 } }, 'place.lat'],
+    [{ name: 'Room', place: { lat: 0, lng: 0, radiusM: 1 } }, 'place.radiusM'],
     [{ name: 'Room', window: { start: 'tomorrow', end: 'later' } }, 'window.start'],
     [
       {
@@ -180,7 +187,7 @@ test('PATCH /v1/rooms/:id changes only the fields sent and bumps the version', a
   assert.deepEqual((await getRoom(users.owner, created.id)).json(), room);
 });
 
-test('PATCH /v1/rooms/:id can clear the description and switch to a time window', async () => {
+test('PATCH /v1/rooms/:id can clear the description and switch to place_time', async () => {
   const created = (await createRoom(users.owner, { name: 'Party', description: 'x' })).json();
 
   const res = await patchRoom(
@@ -188,15 +195,17 @@ test('PATCH /v1/rooms/:id can clear the description and switch to a time window'
     created.id,
     {
       description: null,
-      accessPolicy: 'time_window',
+      accessPolicy: 'place_time',
       window: { start: '2026-12-31T21:00:00Z', end: '2027-01-01T03:00:00Z' },
+      place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
     },
     '"0"',
   );
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().description, null);
-  assert.equal(res.json().accessPolicy, 'time_window');
+  assert.equal(res.json().accessPolicy, 'place_time');
+  assert.deepEqual(res.json().place, { lat: 45.7578, lng: 4.832, radiusM: 200 });
   assert.deepEqual(res.json().window, {
     start: '2026-12-31T21:00:00.000Z',
     end: '2027-01-01T03:00:00.000Z',
@@ -272,15 +281,18 @@ test('PATCH /v1/rooms/:id checks the rules on the room as it would be stored', a
   const timed = (
     await createRoom(users.owner, {
       name: 'Timed',
-      accessPolicy: 'time_window',
+      accessPolicy: 'place_time',
       window: { start: '2026-11-01T20:00:00Z', end: '2026-11-01T23:00:00Z' },
+      place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
     })
   ).json();
   const plain = (await createRoom(users.owner, { name: 'Plain' })).json();
 
   const cases = [
     [timed.id, { window: null }, 'window'],
-    [plain.id, { accessPolicy: 'time_window' }, 'window'],
+    [timed.id, { place: null }, 'place'],
+    [plain.id, { accessPolicy: 'place_time' }, 'window'],
+    [plain.id, { accessPolicy: 'place_time' }, 'place'],
     [
       plain.id,
       { window: { start: '2026-11-01T20:00:00Z', end: '2026-11-01T19:00:00Z' } },
@@ -307,7 +319,7 @@ test('PATCH /v1/rooms/:id checks the rules on the room as it would be stored', a
 
 test('updateRoom writes only if the version is still the expected one, even in a race', async () => {
   const created = (await createRoom(users.owner, { name: 'Row race' })).json();
-  const asStored = { ...created, window: null };
+  const asStored = { ...created, window: null, place: null };
 
   // Five connections race for the same row: the version check in the UPDATE picks one winner
   const results = await Promise.all(

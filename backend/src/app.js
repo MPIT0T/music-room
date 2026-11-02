@@ -91,7 +91,7 @@ export async function buildApp({
   await app.register(fastifyCors, {
     origin: cors.origins.length > 0 ? cors.origins : false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Location'],
     maxAge: 600,
   });
 

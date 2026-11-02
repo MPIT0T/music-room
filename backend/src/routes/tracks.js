@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { rateLimit } from '../security/rate-limit.js';
 import { findTrack, publicTrack, upsertTracks } from '../tracks/repo.js';
@@ -18,7 +18,7 @@ export default async function tracksRoutes(app) {
       'Rate limited per user. 502 when Jamendo is unreachable, 503 when not configured.',
     security: [{ bearerAuth: [] }],
     querystring: searchQuery,
-    response: { 200: searchResponse },
+    response: { 200: searchResponse, ...problems(400, 401, 429, 502, 503) },
   };
 
   const searchLimit = rateLimit(app.limits.trackSearch, (request) => request.userId);
@@ -38,7 +38,7 @@ export default async function tracksRoutes(app) {
       'and is never stored. 404 for an unknown id, 410 when Jamendo no longer serves the track.',
     security: [{ bearerAuth: [] }],
     params: trackParams,
-    response: { 200: streamResponse },
+    response: { 200: streamResponse, ...problems(401, 404, 410, 502, 503) },
   };
 
   app.get('/v1/tracks/:id/stream', { schema: streamSchema }, async (request, reply) => {

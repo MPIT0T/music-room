@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { canManage } from '../rooms/access.js';
@@ -46,10 +46,14 @@ export default async function roomsRoutes(app) {
   const createSchema = {
     tags: ['rooms'],
     summary: 'Create a room',
-    description: 'The caller becomes the owner. Returns the room with its ETag.',
+    description:
+      'The caller becomes the owner. Returns the room with its ETag. `visibility`: who finds ' +
+      'the room (private: owner and members only). `accessPolicy`: who proposes and votes ' +
+      '(everyone, invited members, or place_time: people inside `place` during `window`, ' +
+      'both required, who send their position in X-Location). The owner is never restricted.',
     security: [{ bearerAuth: [] }],
     body: createRoomBody,
-    response: { 201: roomResponse },
+    response: { 201: roomResponse, ...problems(400, 401) },
   };
 
   app.post('/v1/rooms', { schema: createSchema }, async (request, reply) => {
@@ -69,7 +73,7 @@ export default async function roomsRoutes(app) {
       'invited users only. Anyone else gets the same 404 as for a room that does not exist.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: roomResponse },
+    response: { 200: roomResponse, ...problems(401, 404) },
   };
 
   app.get('/v1/rooms/:id', { schema: getSchema }, async (request, reply) => {
@@ -88,7 +92,7 @@ export default async function roomsRoutes(app) {
     params: roomParams,
     headers: ifMatchHeaders,
     body: patchRoomBody,
-    response: { 200: roomResponse },
+    response: { 200: roomResponse, ...problems(400, 401, 403, 404, 412, 428) },
   };
 
   app.patch('/v1/rooms/:id', { schema: patchSchema }, async (request, reply) => {
@@ -120,7 +124,7 @@ export default async function roomsRoutes(app) {
       'see it but is not the owner.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 204: z.null().describe('Room deleted') },
+    response: { 204: z.null().describe('Room deleted'), ...problems(401, 403, 404) },
   };
 
   app.delete('/v1/rooms/:id', { schema: deleteSchema }, async (request, reply) => {

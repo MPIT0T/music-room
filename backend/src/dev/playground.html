@@ -419,7 +419,7 @@
                   <option value="">(défaut : everyone)</option>
                   <option>everyone</option>
                   <option>invited</option>
-                  <option>time_window</option>
+                  <option>place_time</option>
                 </select>
               </div>
             </div>
@@ -431,6 +431,20 @@
               <div>
                 <label for="room-end">Fin de fenêtre</label>
                 <input id="room-end" type="datetime-local" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="room-lat">Latitude</label>
+                <input id="room-lat" type="number" step="any" placeholder="45.7578" />
+              </div>
+              <div>
+                <label for="room-lng">Longitude</label>
+                <input id="room-lng" type="number" step="any" placeholder="4.832" />
+              </div>
+              <div>
+                <label for="room-radius">Rayon (m)</label>
+                <input id="room-radius" type="number" min="10" placeholder="200" />
               </div>
             </div>
             <div class="actions">
@@ -936,6 +950,10 @@
             start: start ? new Date(start).toISOString() : '',
             end: end ? new Date(end).toISOString() : '',
           };
+        }
+        const [lat, lng, radius] = ['room-lat', 'room-lng', 'room-radius'].map((id) => $(id).value);
+        if (lat || lng || radius) {
+          body.place = { lat: Number(lat), lng: Number(lng), radiusM: Number(radius) };
         }
         return body;
       }

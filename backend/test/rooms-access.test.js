@@ -6,6 +6,8 @@ import {
   canRemoveMember,
   canView,
   canVote,
+  distanceM,
+  isWithinPlace,
   isWithinWindow,
   roleOf,
 } from '../src/rooms/access.js';
@@ -15,6 +17,10 @@ const at = (iso) => new Date(iso);
 
 // 16:00 to 18:00 UTC
 const window = { start: at('2026-10-08T16:00:00Z'), end: at('2026-10-08T18:00:00Z') };
+// Place Bellecour, Lyon; 200 m around it
+const place = { lat: 45.7578, lng: 4.832, radiusM: 200 };
+const near = { lat: 45.7588, lng: 4.832 }; // ~111 m north
+const far = { lat: 45.7608, lng: 4.832 }; // ~334 m north
 
 function room(overrides = {}) {
   return {
@@ -23,6 +29,7 @@ function room(overrides = {}) {
     visibility: 'public',
     accessPolicy: 'everyone',
     window: null,
+    place: null,
     ...overrides,
   };
 }
@@ -59,8 +66,8 @@ test('isWithinWindow: half-open interval, no window means no constraint', () => 
 });
 
 test('canVote: never on a room you cannot see, whatever the policy', () => {
-  for (const accessPolicy of ['everyone', 'invited', 'time_window']) {
-    const r = room({ visibility: 'private', accessPolicy, window });
+  for (const accessPolicy of ['everyone', 'invited', 'place_time']) {
+    const r = room({ visibility: 'private', accessPolicy, window, place });
     assert.deepEqual(canVote(r, null, during), { allowed: false, reason: DENY.NOT_VISIBLE });
   }
 });
@@ -77,29 +84,60 @@ test('canVote invited: invited users and owner yes, other users of a public room
   assert.deepEqual(canVote(r, null, during), { allowed: false, reason: DENY.NOT_INVITED });
 });
 
-test('canVote time_window: anyone who can see the room, inside the window only', () => {
-  const r = room({ accessPolicy: 'time_window', window });
-  assert.deepEqual(canVote(r, null, during), { allowed: true });
-  assert.deepEqual(canVote(r, 'invited', during), { allowed: true });
+test('distanceM: haversine, symmetric, a degree of latitude is about 111 km', () => {
+  assert.equal(distanceM(place, place), 0);
+  const north = { lat: place.lat + 1, lng: place.lng };
+  assert.ok(Math.abs(distanceM(place, north) - 111_195) < 10);
+  assert.equal(distanceM(place, north), distanceM(north, place));
+});
+
+test('isWithinPlace: inside the radius, border included', () => {
+  assert.equal(isWithinPlace(place, place), true);
+  assert.equal(isWithinPlace(place, near), true);
+  assert.equal(isWithinPlace(place, far), false);
+  assert.equal(isWithinPlace({ ...place, radiusM: distanceM(place, far) }, far), true);
+});
+
+test('canVote place_time: anyone who can see the room, inside the window and the place', () => {
+  const r = room({ accessPolicy: 'place_time', window, place });
+  assert.deepEqual(canVote(r, null, { ...during, location: near }), { allowed: true });
+  assert.deepEqual(canVote(r, 'invited', { ...during, location: near }), { allowed: true });
   for (const now of [at('2026-10-08T15:00:00Z'), at('2026-10-08T18:00:00Z')]) {
-    assert.deepEqual(canVote(r, 'invited', { now }), {
+    assert.deepEqual(canVote(r, 'invited', { now, location: near }), {
       allowed: false,
       reason: DENY.OUTSIDE_TIME_WINDOW,
     });
   }
+  assert.deepEqual(canVote(r, null, { ...during, location: far }), {
+    allowed: false,
+    reason: DENY.OUTSIDE_PLACE,
+  });
+  for (const location of [null, undefined]) {
+    assert.deepEqual(canVote(r, null, { ...during, location }), {
+      allowed: false,
+      reason: DENY.LOCATION_REQUIRED,
+    });
+  }
 });
 
-test('canVote time_window: the owner is never restricted', () => {
-  const r = room({ accessPolicy: 'time_window', window });
-  assert.deepEqual(canVote(r, 'owner', { now: at('2026-10-08T10:00:00Z') }), { allowed: true });
+test('canVote place_time: the owner is never restricted', () => {
+  const r = room({ accessPolicy: 'place_time', window, place });
+  assert.deepEqual(canVote(r, 'owner', { now: at('2026-10-08T10:00:00Z'), location: far }), {
+    allowed: true,
+  });
 });
 
-test('canVote: time_window without window or unknown policy is refused, never opened', () => {
+test('canVote: place_time without window or place, or an unknown policy, is refused', () => {
   for (const r of [
-    room({ accessPolicy: 'time_window', window: null }),
+    room({ accessPolicy: 'place_time', window: null, place }),
+    room({ accessPolicy: 'place_time', window, place: null }),
+    room({ accessPolicy: 'time_window', window }),
     room({ accessPolicy: 'something_new' }),
   ]) {
-    assert.deepEqual(canVote(r, null, during), { allowed: false, reason: DENY.MISCONFIGURED });
+    assert.deepEqual(canVote(r, null, { ...during, location: near }), {
+      allowed: false,
+      reason: DENY.MISCONFIGURED,
+    });
   }
 });
 

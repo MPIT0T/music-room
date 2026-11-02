@@ -40,3 +40,29 @@ test('GET /docs serves the Swagger UI', async (t) => {
 
   assert.ok(res.statusCode < 400, `got ${res.statusCode}`);
 });
+
+test('every route is documented: summary, description, its errors, only its own path params', async (t) => {
+  const spec = await getSpec(t);
+
+  for (const [path, ops] of Object.entries(spec.paths)) {
+    const inPath = [...path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    for (const [method, op] of Object.entries(ops)) {
+      const where = `${method.toUpperCase()} ${path}`;
+      assert.ok(op.tags?.length, `${where}: no tag`);
+      assert.ok(op.summary, `${where}: no summary`);
+      assert.ok(op.description, `${where}: no description`);
+      const params = (op.parameters ?? []).filter((p) => p.in === 'path').map((p) => p.name);
+      assert.deepEqual(params.sort(), inPath, `${where}: path params`);
+      if (op.security?.some((s) => 'bearerAuth' in s)) {
+        assert.ok(op.responses['401'], `${where}: 401 not documented`);
+      }
+    }
+  }
+});
+
+test('the real-time contract is described at the top of /docs', async (t) => {
+  const spec = await getSpec(t);
+  for (const word of ['subscribe', 'room.changed', 'room.playback']) {
+    assert.ok(spec.info.description.includes(word), word);
+  }
+});

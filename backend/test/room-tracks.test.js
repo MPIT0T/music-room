@@ -70,24 +70,25 @@ const invite = (actor, roomId, userId) =>
   app.inject({ method: 'PUT', url: `/v1/rooms/${roomId}/members/${userId}`, headers: auth(actor) });
 const getQueue = (actor, roomId) =>
   app.inject({ url: `/v1/rooms/${roomId}/tracks`, headers: auth(actor) });
-const propose = (actor, roomId, trackId) =>
+// extra: more headers, such as X-Location
+const propose = (actor, roomId, trackId, extra = {}) =>
   app.inject({
     method: 'POST',
     url: `/v1/rooms/${roomId}/tracks`,
-    headers: auth(actor),
+    headers: { ...auth(actor), ...extra },
     payload: { trackId },
   });
-const vote = (actor, roomId, itemId) =>
+const vote = (actor, roomId, itemId, extra = {}) =>
   app.inject({
     method: 'PUT',
     url: `/v1/rooms/${roomId}/tracks/${itemId}/vote`,
-    headers: auth(actor),
+    headers: { ...auth(actor), ...extra },
   });
-const unvote = (actor, roomId, itemId) =>
+const unvote = (actor, roomId, itemId, extra = {}) =>
   app.inject({
     method: 'DELETE',
     url: `/v1/rooms/${roomId}/tracks/${itemId}/vote`,
-    headers: auth(actor),
+    headers: { ...auth(actor), ...extra },
   });
 const skip = (actor, roomId) =>
   app.inject({ method: 'POST', url: `/v1/rooms/${roomId}/skip`, headers: auth(actor) });
@@ -287,19 +288,60 @@ test('policy invited: anyone sees the public queue, only members propose and vot
   assert.equal((await vote(users.guest, room.id, id)).statusCode, 204);
 });
 
-test('policy time_window: outside the window the queue is visible but frozen', async () => {
+// Place Bellecour, Lyon; ~111 m and ~334 m north of it
+const place = { lat: 45.7578, lng: 4.832, radiusM: 200 };
+const near = { 'x-location': '45.7588,4.832' };
+const far = { 'x-location': '45.7608,4.832' };
+const hours = (n) => new Date(Date.now() + n * 3600_000).toISOString();
+
+test('policy place_time: outside the window the queue is visible but frozen', async () => {
   const room = await createRoom(users.owner, {
     name: 'Past party',
-    accessPolicy: 'time_window',
+    accessPolicy: 'place_time',
     window: { start: '2020-01-01T16:00:00Z', end: '2020-01-01T18:00:00Z' },
+    place,
   });
   const [id] = await fill(room, 'a');
 
   assert.equal((await getQueue(users.guest, room.id)).statusCode, 200);
-  assertProblem(await propose(users.guest, room.id, tracks.b), 403, 'outside_time_window');
-  assertProblem(await vote(users.guest, room.id, id), 403, 'outside_time_window');
+  assertProblem(await propose(users.guest, room.id, tracks.b, near), 403, 'outside_time_window');
+  assertProblem(await vote(users.guest, room.id, id, near), 403, 'outside_time_window');
   // the owner is never limited by the policy
   assert.equal((await vote(users.owner, room.id, id)).statusCode, 204);
+});
+
+test('policy place_time: during the window, only phones inside the place vote', async () => {
+  const room = await createRoom(users.owner, {
+    name: 'Live party',
+    accessPolicy: 'place_time',
+    window: { start: hours(-1), end: hours(1) },
+    place,
+  });
+  const [id] = await fill(room, 'a');
+
+  assertProblem(await vote(users.guest, room.id, id), 403, 'location_required');
+  assertProblem(await vote(users.guest, room.id, id, far), 403, 'outside_place');
+  assertProblem(await propose(users.guest, room.id, tracks.b, far), 403, 'outside_place');
+  assert.deepEqual(sent, []);
+
+  assert.equal((await vote(users.guest, room.id, id, near)).statusCode, 204);
+  assert.equal((await propose(users.guest, room.id, tracks.b, near)).statusCode, 201);
+  assert.equal((await unvote(users.guest, room.id, id, near)).statusCode, 204);
+});
+
+test('X-Location must be "lat,lng" in range: 400 otherwise', async () => {
+  const room = await createRoom(users.owner, { name: 'Bad location' });
+  const [id] = await fill(room, 'a');
+
+  for (const value of ['45.75', '45.75;4.83', 'abc,def', '91,0', '0,181', '45.75, 4.83']) {
+    assertProblem(
+      await vote(users.guest, room.id, id, { 'x-location': value }),
+      400,
+      'validation_failed',
+    );
+  }
+  // Ignored where the policy does not need it
+  assert.equal((await vote(users.guest, room.id, id, near)).statusCode, 204);
 });
 
 test('proposing an unknown track: 404 track_not_found; a malformed id: 400', async () => {

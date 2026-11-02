@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { canManage, canVote } from '../rooms/access.js';
 import { emitPlayback, emitRoomChanged } from '../rooms/events.js';
@@ -9,6 +9,7 @@ import { addTrack, findItem, findPlaying, listQueue, skip, unvote, vote } from '
 import {
   addTrackBody,
   itemParams,
+  locationHeaders,
   playbackBody,
   playbackResponse,
   queueItem,
@@ -29,9 +30,11 @@ export default async function roomTracksRoutes(app) {
     return visible;
   }
 
-  // 403 with the reason as code: not_invited, outside_time_window, misconfigured
-  function assertCanVote(room, role) {
-    const verdict = canVote(room, role, { now: new Date() });
+  // 403 with the reason as code: not_invited, outside_time_window, location_required,
+  // outside_place, misconfigured. The X-Location header is parsed by locationHeaders.
+  function assertCanVote(room, role, request) {
+    const location = request.headers['x-location'] ?? null;
+    const verdict = canVote(room, role, { now: new Date(), location });
     if (!verdict.allowed) throw new HttpProblem(403, verdict.reason);
   }
 
@@ -51,7 +54,7 @@ export default async function roomTracksRoutes(app) {
       'A private room answers 404 to anyone who is neither owner nor member.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: queueResponse },
+    response: { 200: queueResponse, ...problems(401, 404) },
   };
 
   app.get('/v1/rooms/:id/tracks', { schema: listSchema }, async (request) => {
@@ -64,18 +67,20 @@ export default async function roomTracksRoutes(app) {
     summary: 'Propose a track',
     description:
       'Anyone allowed to vote (see the room access policy), else 403 with the reason as code. ' +
+      'In a place_time room, send the phone position in X-Location. ' +
       'A track already queued or playing is not added twice: 200 with the existing item ' +
       'instead of 201. A track already played can be proposed again. 404 track_not_found for ' +
       'an unknown track. Subscribers receive `room.changed` with `change: "queue"`.',
     security: [{ bearerAuth: [] }],
+    headers: locationHeaders,
     params: roomParams,
     body: addTrackBody,
-    response: { 200: queueItem, 201: queueItem },
+    response: { 200: queueItem, 201: queueItem, ...problems(400, 401, 403, 404) },
   };
 
   app.post('/v1/rooms/:id/tracks', { schema: addSchema }, async (request, reply) => {
     const { room, role } = await visibleRoomOr404(request);
-    assertCanVote(room, role);
+    assertCanVote(room, role, request);
 
     const { item, created } = await addTrack(app.db, room.id, request.body.trackId, request.userId);
     if (created) emitRoomChanged(app.io, room, 'queue');
@@ -90,13 +95,17 @@ export default async function roomTracksRoutes(app) {
       'nothing. 409 not_queued if the item is playing or already played. Subscribers receive ' +
       '`room.changed` with `change: "queue"`.',
     security: [{ bearerAuth: [] }],
+    headers: locationHeaders,
     params: itemParams,
-    response: { 204: z.null().describe('The caller votes for this item') },
+    response: {
+      204: z.null().describe('The caller votes for this item'),
+      ...problems(400, 401, 403, 404, 409),
+    },
   };
 
   app.put('/v1/rooms/:id/tracks/:itemId/vote', { schema: voteSchema }, async (request, reply) => {
     const { room, role } = await visibleRoomOr404(request);
-    assertCanVote(room, role);
+    assertCanVote(room, role, request);
     const item = await itemOr404(room, request);
     if (item.status !== 'queued') throw new HttpProblem(409, 'not_queued');
 
@@ -111,8 +120,12 @@ export default async function roomTracksRoutes(app) {
       'Anyone allowed to vote, whatever the item status. Idempotent: 204 even without a vote. ' +
       'Subscribers receive `room.changed` with `change: "queue"`.',
     security: [{ bearerAuth: [] }],
+    headers: locationHeaders,
     params: itemParams,
-    response: { 204: z.null().describe('The caller does not vote for this item') },
+    response: {
+      204: z.null().describe('The caller does not vote for this item'),
+      ...problems(400, 401, 403, 404),
+    },
   };
 
   app.delete(
@@ -120,7 +133,7 @@ export default async function roomTracksRoutes(app) {
     { schema: unvoteSchema },
     async (request, reply) => {
       const { room, role } = await visibleRoomOr404(request);
-      assertCanVote(room, role);
+      assertCanVote(room, role, request);
       const item = await itemOr404(room, request);
 
       if (await unvote(app.db, item.id, request.userId)) emitRoomChanged(app.io, room, 'queue');
@@ -139,7 +152,7 @@ export default async function roomTracksRoutes(app) {
       'playing from 0 (or `playback: null`).',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: queueResponse },
+    response: { 200: queueResponse, ...problems(401, 403, 404) },
   };
 
   app.post('/v1/rooms/:id/skip', { schema: skipSchema }, async (request) => {
@@ -170,7 +183,7 @@ export default async function roomTracksRoutes(app) {
       'when nothing plays. Updates come as `room.playback` events.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: playbackResponse },
+    response: { 200: playbackResponse, ...problems(401, 404) },
   };
 
   app.get('/v1/rooms/:id/playback', { schema: getPlaybackSchema }, async (request) => {
@@ -189,7 +202,7 @@ export default async function roomTracksRoutes(app) {
     security: [{ bearerAuth: [] }],
     params: roomParams,
     body: playbackBody,
-    response: { 204: z.null().describe('State saved') },
+    response: { 204: z.null().describe('State saved'), ...problems(400, 401, 403, 404, 409) },
   };
 
   app.put('/v1/rooms/:id/playback', { schema: putPlaybackSchema }, async (request, reply) => {

@@ -7,6 +7,11 @@ export function toRoom(row) {
     visibility: row.visibility,
     accessPolicy: row.access_policy,
     window: row.starts_at == null ? null : { start: row.starts_at, end: row.ends_at },
+    // DECIMAL columns come back as strings
+    place:
+      row.latitude == null
+        ? null
+        : { lat: Number(row.latitude), lng: Number(row.longitude), radiusM: row.radius_m },
     beaconMinor: row.beacon_minor,
     version: Number(row.version),
     createdAt: row.created_at,
@@ -28,8 +33,9 @@ export async function findRoomForUser(db, roomId, userId) {
 
 export async function insertRoom(db, ownerId, input) {
   const [rows] = await db.query(
-    `INSERT INTO rooms (owner_id, name, description, visibility, access_policy, starts_at, ends_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO rooms (owner_id, name, description, visibility, access_policy, starts_at, ends_at,
+                        latitude, longitude, radius_m)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      RETURNING *`,
     [
       ownerId,
@@ -39,6 +45,9 @@ export async function insertRoom(db, ownerId, input) {
       input.accessPolicy,
       input.window?.start ?? null,
       input.window?.end ?? null,
+      input.place?.lat ?? null,
+      input.place?.lng ?? null,
+      input.place?.radiusM ?? null,
     ],
   );
   return toRoom(rows[0]);
@@ -48,7 +57,8 @@ export async function updateRoom(db, roomId, expectedVersion, room) {
   const [result] = await db.query(
     `UPDATE rooms
         SET name = ?, description = ?, visibility = ?, access_policy = ?,
-            starts_at = ?, ends_at = ?, version = version + 1
+            starts_at = ?, ends_at = ?, latitude = ?, longitude = ?, radius_m = ?,
+            version = version + 1
       WHERE id = ? AND version = ?`,
     [
       room.name,
@@ -57,6 +67,9 @@ export async function updateRoom(db, roomId, expectedVersion, room) {
       room.accessPolicy,
       room.window?.start ?? null,
       room.window?.end ?? null,
+      room.place?.lat ?? null,
+      room.place?.lng ?? null,
+      room.place?.radiusM ?? null,
       roomId,
       expectedVersion,
     ],

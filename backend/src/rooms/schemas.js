@@ -8,16 +8,27 @@ const isoDate = z.codec(z.iso.datetime({ offset: true }), z.date(), {
 });
 
 const visibility = z.enum(['public', 'private']);
-const accessPolicy = z.enum(['everyone', 'invited', 'time_window']);
+const accessPolicy = z.enum(['everyone', 'invited', 'place_time']);
 const roomWindow = z.object({ start: isoDate, end: isoDate });
+const latitude = z.number().min(-90).max(90);
+const longitude = z.number().min(-180).max(180);
+const roomPlace = z.object({
+  lat: latitude,
+  lng: longitude,
+  // Leave a margin: a phone indoors is often off by tens of meters
+  radiusM: z.number().int().min(10).max(50_000).describe('Who is farther away cannot vote'),
+});
 
 export function roomRuleIssues(room) {
   const issues = [];
   if (room.window != null && !(room.window.end > room.window.start)) {
     issues.push({ path: ['window', 'end'], message: 'must be after window.start' });
   }
-  if (room.accessPolicy === 'time_window' && room.window == null) {
-    issues.push({ path: ['window'], message: 'required when accessPolicy is time_window' });
+  if (room.accessPolicy === 'place_time' && room.window == null) {
+    issues.push({ path: ['window'], message: 'required when accessPolicy is place_time' });
+  }
+  if (room.accessPolicy === 'place_time' && room.place == null) {
+    issues.push({ path: ['place'], message: 'required when accessPolicy is place_time' });
   }
   return issues;
 }
@@ -33,6 +44,7 @@ export const createRoomBody = z
     visibility: visibility.default('public'),
     accessPolicy: accessPolicy.default('everyone'),
     window: roomWindow.nullable().default(null),
+    place: roomPlace.nullable().default(null),
   })
   .superRefine(addRuleIssues);
 
@@ -43,6 +55,7 @@ export const patchRoomBody = z
     visibility: visibility.optional(),
     accessPolicy: accessPolicy.optional(),
     window: roomWindow.nullable().optional(),
+    place: roomPlace.nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'at least one field is required' })
   .refine((body) => body.window == null || body.window.end > body.window.start, {
@@ -64,6 +77,7 @@ export const roomResponse = z.object({
   visibility,
   accessPolicy,
   window: roomWindow.nullable(),
+  place: roomPlace.nullable(),
   beaconMinor: z.number().int().nullable(),
   version: z.number().int(),
   createdAt: isoDate,
@@ -128,4 +142,21 @@ export const playbackState = z.object({
 
 export const playbackResponse = z.object({
   playback: playbackState.nullable().describe('null when nothing plays'),
+});
+
+// "lat,lng" as decimal degrees, e.g. "45.750000,4.850000"
+const location = z
+  .string()
+  .max(64)
+  .regex(/^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/, 'expected "lat,lng" in decimal degrees')
+  .transform((text) => {
+    const [lat, lng] = text.split(',').map(Number);
+    return { lat, lng };
+  })
+  .pipe(z.object({ lat: latitude, lng: longitude }));
+
+export const locationHeaders = z.looseObject({
+  'x-location': location
+    .optional()
+    .describe('Position of the phone, "lat,lng": required in a place_time room'),
 });
