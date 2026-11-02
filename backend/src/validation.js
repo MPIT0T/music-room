@@ -5,15 +5,16 @@ import { z } from 'zod';
 // which can display "evil" reversed or hide part of a name. Emoji joiners stay allowed.
 const INVISIBLE = /[\p{Cc}\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/u;
 
-// Single-line text typed by a user and shown to others (names, city...)
-export function safeText({ min = 0, max }) {
+// Text typed by a user and shown to others (names, city, bio...). Single line by default;
+// multiline lets newlines through (a bio), never the other invisible characters.
+export function safeText({ min = 0, max, multiline = false }) {
   return z
     .string()
     .normalize('NFC')
     .trim()
     .min(min)
     .max(max)
-    .refine((value) => !INVISIBLE.test(value), {
+    .refine((value) => !INVISIBLE.test(multiline ? value.replaceAll('\n', '') : value), {
       message: 'must not contain control or text-direction characters',
     });
 }
