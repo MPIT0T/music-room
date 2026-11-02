@@ -12,4 +12,6 @@ export const limits = {
   trackSearch: { name: 'track-search', limit: 30, windowSeconds: 60 },
   // Prevents an account from spamming friend requests
   friendRequest: { name: 'friend-request', limit: 30, windowSeconds: 60 * 60 },
+  // Friend searching
+  userSearch: { name: 'user-search', limit: 30, windowSeconds: 60 },
 };

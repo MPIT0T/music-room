@@ -4,11 +4,26 @@ import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { rateLimit } from '../security/rate-limit.js';
 import { emitFriendsChanged } from '../friends/events.js';
-import { removeFriendship, requestOrAccept } from '../friends/repo.js';
-import { friendParams, friendshipStatus } from '../friends/schemas.js';
+import {
+  listFriends,
+  listRequests,
+  removeFriendship,
+  requestOrAccept,
+  searchUsers,
+} from '../friends/repo.js';
+import {
+  friendParams,
+  friendshipStatus,
+  friendsResponse,
+  requestsResponse,
+  searchResponse,
+} from '../friends/schemas.js';
+import { searchQuery } from '../tracks/schemas.js';
 
 export default async function friendsRoutes(app) {
   app.addHook('onRequest', requireAuth);
+
+  const requestLimit = rateLimit(app.limits.friendRequest, (request) => request.userId);
 
   const putSchema = {
     tags: ['friends'],
@@ -22,7 +37,6 @@ export default async function friendsRoutes(app) {
     params: friendParams,
     response: { 200: friendshipStatus },
   };
-  const requestLimit = rateLimit(app.limits.friendRequest, (request) => request.userId);
   app.put(
     '/v1/friends/:userId',
     { schema: putSchema, preHandler: requestLimit },
@@ -58,4 +72,46 @@ export default async function friendsRoutes(app) {
     }
     return reply.code(204).send();
   });
+
+  const listSchema = {
+    tags: ['friends'],
+    summary: 'List my friends',
+    description: 'Accepted friendships only, sorted by display name.',
+    security: [{ bearerAuth: [] }],
+    response: { 200: friendsResponse },
+  };
+  app.get('/v1/friends', { schema: listSchema }, async (request) => ({
+    friends: await listFriends(app.db, request.userId),
+  }));
+
+  const requestSchema = {
+    tags: ['friends'],
+    summary: 'List my pending friend requests',
+    description: 'Newest first, split between requests I received and requests I sent.',
+    security: [{ bearerAuth: [] }],
+    response: { 200: requestsResponse },
+  };
+  app.get('/v1/friends/requests', { schema: requestSchema }, async (request) =>
+    listRequests(app.db, request.userId),
+  );
+
+  const searchLimit = rateLimit(app.limits.userSearch, (request) => request.userId);
+  const searchSchema = {
+    tags: ['friends'],
+    summary: 'Find users by display name',
+    description:
+      'Prefix match, case insensitive, verified accounts only, never me. Never searches ' +
+      'emails, so it cannot tell who has an account. Rate limited per user.',
+    security: [{ bearerAuth: [] }],
+    querystring: searchQuery,
+    response: { 200: searchResponse },
+  };
+  app.get(
+    '/v1/users/search',
+    { schema: searchSchema, preHandler: searchLimit },
+    async (request) => {
+      const { q, limit } = request.query;
+      return { users: await searchUsers(app.db, request.userId, q, limit) };
+    },
+  );
 }
