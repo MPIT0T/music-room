@@ -121,7 +121,7 @@ void main() {
         );
 
     expect(failure?.code, 'http_502');
-    expect(failure?.message, 'Sign-in failed. Please try again.');
+    expect(failure?.message, 'Something went wrong. Please try again.');
   });
 
   test('a network failure gives network_error', () async {
@@ -148,4 +148,79 @@ void main() {
     expect(await store.refreshToken(), isNull);
     expect(await store.deviceId(), 'd1');
   });
+
+  test('login sends the stored deviceId and stores the new session', () async {
+    await store.save(session('d1'));
+    final service = serviceAnswering(
+      (_) => http.Response(jsonEncode(session('d1')), 200),
+    );
+
+    await service.login(' max@example.com ', 'correct horse battery');
+
+    expect(requests.single.url.path, '/v1/sessions');
+    final body = jsonDecode(requests.single.body);
+    expect(body['email'], 'max@example.com');
+    expect(body['deviceId'], 'd1');
+    expect(await store.accessToken(), 'access-d1');
+  });
+
+  test('login errors become messages; email_not_verified keeps its code for the Resend button', () async {
+    for (final code in [
+      'invalid_credentials',
+      'email_not_verified',
+      'rate_limited',
+    ]) {
+      final service = serviceAnswering(
+        (_) => problem(code == 'rate_limited' ? 429 : 401, code),
+      );
+
+      final failure = await service
+          .login('max@example.com', 'x')
+          .then<AuthFailure?>(
+            (_) => null,
+            onError: (Object e) => e as AuthFailure,
+          );
+
+      expect(failure?.code, code);
+      expect(failure?.message, isNot(contains('_')));
+    }
+  });
+
+  test('signup, resend and forgot password post to their routes', () async {
+    final service = serviceAnswering((_) => http.Response('', 202));
+
+    await service.signup('max@example.com', 'correct horse battery', ' Max ');
+    await service.resendVerification('max@example.com');
+    await service.forgotPassword('max@example.com');
+
+    expect(requests.map((r) => r.url.path), [
+      '/v1/users',
+      '/v1/users/verify-email/resend',
+      '/v1/password-resets',
+    ]);
+    expect(jsonDecode(requests.first.body)['displayName'], 'Max');
+  });
+
+  test(
+    'logout revokes the session and forgets the tokens, even when offline',
+    () async {
+      await store.save(session('d1'));
+      final online = serviceAnswering((_) => http.Response('', 204));
+
+      await online.logout();
+
+      expect(requests.single.method, 'DELETE');
+      expect(requests.single.url.path, '/v1/sessions/current');
+      expect(requests.single.headers['authorization'], 'Bearer access-d1');
+      expect(await store.accessToken(), isNull);
+      expect(await store.deviceId(), 'd1');
+
+      await store.save(session('d1'));
+      final offline = serviceAnswering(
+        (_) => throw http.ClientException('offline'),
+      );
+      await offline.logout();
+      expect(await store.refreshToken(), isNull);
+    },
+  );
 }
