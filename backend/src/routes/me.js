@@ -56,7 +56,8 @@ const patchBody = z.strictObject({
     z
       .string()
       .trim()
-      .regex(/^[0-9 +().-]{3,30}$/, 'digits, spaces and + ( ) . - only'),
+      // '' is accepted here so that it can clear the field, like the other optional texts
+      .regex(/^([0-9 +().-]{3,30})?$/, 'digits, spaces and + ( ) . - only'),
   ),
   birthDate: z.iso
     .date()
@@ -167,12 +168,13 @@ export default async function meRoutes(app) {
           'public always; friends only for yourself or an accepted friend (null otherwise); ' +
           'private never. Unknown and malformed ids get the same 404.',
         security: [{ bearerAuth: [] }],
-        params: z.object({ id: z.string().max(64) }),
+        params: z.object({ id: z.string() }),
         response: { 200: profileSchema, 401: problemSchema, 404: problemSchema },
       },
     },
     async (request) => {
       const id = request.params.id.toLowerCase();
+      // Malformed, too long or unknown: the same 404 (contract)
       const profile = UUID.test(id) ? await loadProfile(app.db, request.userId, id) : null;
       if (!profile) throw new HttpProblem(404, 'user_not_found');
       return profile;
