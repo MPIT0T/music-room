@@ -14,4 +14,8 @@ export const limits = {
   changePassword: { name: 'change-password', limit: 5, windowSeconds: 15 * 60 },
   // Each search is a Jamendo call on our client ID: typing with debounce stays well below
   trackSearch: { name: 'track-search', limit: 30, windowSeconds: 60 },
+  // Prevents an account from spamming friend requests
+  friendRequest: { name: 'friend-request', limit: 30, windowSeconds: 60 * 60 },
+  // Friend searching
+  userSearch: { name: 'user-search', limit: 30, windowSeconds: 60 },
 };

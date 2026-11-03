@@ -18,6 +18,7 @@ import roomMembersRoutes from './routes/room-members.js';
 import tracksRoutes from './routes/tracks.js';
 import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
+import friendsRoutes from './routes/friends.js';
 import passwordsRoutes from './routes/passwords.js';
 import emailPagesRoutes from './routes/email-pages.js';
 import { createRateLimiter } from './security/rate-limit.js';
@@ -124,6 +125,7 @@ export async function buildApp({
   await app.register(tracksRoutes);
   if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);
+  await app.register(friendsRoutes);
   await app.register(passwordsRoutes);
   await app.register(emailPagesRoutes);
 
