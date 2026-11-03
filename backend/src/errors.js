@@ -15,6 +15,10 @@ export const problemSchema = z
   })
   .describe('application/problem+json (RFC 9457); clients rely on `code`');
 
+// Documents the error statuses of a route: response: { 200: x, ...problems(401, 404) }
+export const problems = (...statuses) =>
+  Object.fromEntries(statuses.map((status) => [status, problemSchema]));
+
 // Thrown by routes for expected failures; the handler turns it into problem+json
 export class HttpProblem extends Error {
   constructor(status, code, { title = defaultTitle(code), detail, headers, cause } = {}) {

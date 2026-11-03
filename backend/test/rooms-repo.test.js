@@ -11,7 +11,7 @@ const row = {
   name: 'Friday night',
   description: null,
   visibility: 'public',
-  access_policy: 'time_window',
+  access_policy: 'place_time',
   latitude: '48.867400',
   longitude: '2.363600',
   radius_m: 200,
@@ -23,20 +23,29 @@ const row = {
   updated_at: new Date('2026-10-02T00:00:00Z'),
 };
 
-test('toRoom: camelCase, version converted, window grouped', () => {
+test('toRoom: camelCase, version converted, window and place grouped', () => {
   const room = toRoom(row);
   assert.equal(room.ownerId, 'owner-id');
-  assert.equal(room.accessPolicy, 'time_window');
-  assert.equal('geo' in room, false);
+  assert.equal(room.accessPolicy, 'place_time');
+  // DECIMAL strings become numbers
+  assert.deepEqual(room.place, { lat: 48.8674, lng: 2.3636, radiusM: 200 });
   assert.deepEqual(room.window, { start: row.starts_at, end: row.ends_at });
   assert.equal(room.beaconMinor, 42);
   assert.equal(room.version, 3);
   assert.equal('owner_id' in room, false);
 });
 
-test('toRoom: no time gives a null window', () => {
-  const room = toRoom({ ...row, starts_at: null, ends_at: null });
+test('toRoom: no time gives a null window, no place a null place', () => {
+  const room = toRoom({
+    ...row,
+    starts_at: null,
+    ends_at: null,
+    latitude: null,
+    longitude: null,
+    radius_m: null,
+  });
   assert.equal(room.window, null);
+  assert.equal(room.place, null);
 });
 
 test('findRoomForUser: parameterised query, invitation flag, null when missing', async () => {

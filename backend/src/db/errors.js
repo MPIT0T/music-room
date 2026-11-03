@@ -10,7 +10,11 @@ const DEFAULTS = {
 const BY_CONSTRAINT = {
   fk_rooms_owner: [409, 'owns_rooms'],
   fk_rm_user: [404, 'user_not_found'],
+  fk_rt_track: [404, 'track_not_found'],
+  fk_fr_a: [404, 'user_not_found'],
+  fk_fr_b: [404, 'user_not_found'],
   email: [409, 'email_taken'],
+  beacon_minor: [409, 'beacon_taken'],
 };
 
 // "... CONSTRAINT `fk_x` ..." (1451, 1452) or "... for key 'uq_x'" (1062)
