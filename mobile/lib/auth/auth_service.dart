@@ -104,6 +104,43 @@ class AuthService {
 
   Future<bool> hasSession() => _store.hasSession();
 
+  /// Login methods of the account (`password`, `google`), from GET /v1/me.
+  Future<List<String>> providers() async {
+    try {
+      final res = await _api.get('/v1/me');
+      return List<String>.from(res.body['providers'] as List? ?? const []);
+    } on ApiException catch (e) {
+      throw _failure(e);
+    }
+  }
+
+  // Same codes as sign-in, but the user is linking from the profile: the advice differs
+  static const _linkMessages = {
+    'already_linked':
+        'Another Google account is already linked. Unlink it first.',
+    'oauth_account_in_use':
+        'This Google account is already used by another Music Room account.',
+    'not_linked': 'No Google account is linked.',
+    'last_login_method': 'Set a password first (Forgot password), or you could not log in any more.',
+  };
+
+  /// Links a Google account to the signed-in account (PUT /v1/me/oauth/google, subject V.1).
+  Future<void> linkGoogle(String idToken) => _linkCall(
+    () => _api.putJson('/v1/me/oauth/google', {'idToken': idToken}),
+  );
+
+  Future<void> unlinkGoogle() =>
+      _linkCall(() => _api.delete('/v1/me/oauth/google'));
+
+  Future<void> _linkCall(Future<ApiResponse> Function() call) async {
+    try {
+      await call();
+    } on ApiException catch (e) {
+      final message = _linkMessages[e.code];
+      throw message != null ? AuthFailure(e.code, message) : _failure(e);
+    }
+  }
+
   Future<void> _post(String path, Map<String, Object?> body) async {
     try {
       await _api.postJson(path, body);

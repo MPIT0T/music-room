@@ -223,4 +223,59 @@ void main() {
       expect(await store.refreshToken(), isNull);
     },
   );
+
+  test(
+    'link and unlink Google call the profile routes with the access token',
+    () async {
+      await store.save(session('d1'));
+      final service = serviceAnswering(
+        (_) => http.Response(
+          jsonEncode({
+            'providers': ['password', 'google'],
+          }),
+          200,
+        ),
+      );
+
+      await service.linkGoogle(idToken);
+      await service.unlinkGoogle();
+      final providers = await service.providers();
+
+      expect(requests.map((r) => '${r.method} ${r.url.path}'), [
+        'PUT /v1/me/oauth/google',
+        'DELETE /v1/me/oauth/google',
+        'GET /v1/me',
+      ]);
+      expect(jsonDecode(requests.first.body), {'idToken': idToken});
+      expect(
+        requests.map((r) => r.headers['authorization']),
+        everyElement('Bearer access-d1'),
+      );
+      expect(providers, ['password', 'google']);
+    },
+  );
+
+  test('link errors become profile messages', () async {
+    await store.save(session('d1'));
+    const cases = {
+      409: ['already_linked', 'oauth_account_in_use', 'last_login_method'],
+      404: ['not_linked'],
+    };
+    for (final MapEntry(key: status, value: codes) in cases.entries) {
+      for (final code in codes) {
+        final service = serviceAnswering((_) => problem(status, code));
+
+        final failure = await service
+            .linkGoogle(idToken)
+            .then<AuthFailure?>(
+              (_) => null,
+              onError: (Object e) => e as AuthFailure,
+            );
+
+        expect(failure?.code, code);
+        expect(failure?.message, isNot(contains('_')));
+        expect(failure.toString(), isNot(contains(idToken)));
+      }
+    }
+  });
 }

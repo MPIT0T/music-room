@@ -22,7 +22,11 @@ class GoogleSignInButton extends StatefulWidget {
     super.key,
     required this.onIdToken,
     required this.onError,
+    this.label = 'Continue with Google',
   });
+
+  /// Same button for sign-in and for linking an account from the profile.
+  final String label;
 
   /// Receives the Google ID token, to be exchanged with the API.
   final Future<void> Function(String idToken) onIdToken;
@@ -133,7 +137,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       );
     }
     return AppButton(
-      label: 'Continue with Google',
+      label: widget.label,
       isLoading: _busy,
       onPressed: _tap,
       icon: Icons.g_mobiledata_rounded,
