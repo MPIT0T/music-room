@@ -16,7 +16,7 @@ const publicGroup = z.object({
 const friendsGroup = z.object({ city: z.string().nullable(), phone: z.string().nullable() });
 
 // Response schemas also filter: a column not listed here can never be sent
-const meSchema = z.object({
+export const meSchema = z.object({
   id: z.string(),
   emailVerified: z.boolean(),
   plan: z.enum(['free', 'premium']),
