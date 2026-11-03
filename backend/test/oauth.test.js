@@ -146,15 +146,27 @@ test('a token issued to the Android client is accepted too', async () => {
   assert.equal(res.statusCode, 201);
 });
 
-test('a verified local account with the same email is linked, its password kept', async () => {
+test('a verified account with a password is never linked automatically: 409', async () => {
   const id = await createLocalAccount('local', { verified: true });
 
   const res = await signIn(await idToken('local'));
 
-  assert.equal(res.statusCode, 200);
-  assert.equal(res.json().user.id, id);
-  assert.deepEqual(res.json().user.providers, ['password', 'google']);
-  assert.ok((await userRow(id)).password_hash);
+  assertProblem(res, 409, 'password_login_required');
+  const [links] = await app.db.query('SELECT 1 FROM oauth_accounts WHERE user_id = ?', [id]);
+  assert.equal(links.length, 0);
+});
+
+test('pre-hijacking through the verification link: Google does not inherit the attacker password', async () => {
+  // The attacker signs up with the victim's address; the victim clicks the verification link
+  const id = await createLocalAccount('prehijack', { verified: false });
+  await app.db.query('UPDATE users SET email_verified_at = NOW(3) WHERE id = ?', [id]);
+
+  const res = await signIn(await idToken('prehijack'));
+
+  // No session on that account: the victim must reset the password, which removes the attacker's
+  assertProblem(res, 409, 'password_login_required');
+  const [links] = await app.db.query('SELECT 1 FROM oauth_accounts WHERE user_id = ?', [id]);
+  assert.equal(links.length, 0);
 });
 
 test('an unverified local account is taken over by Google: its password is removed', async () => {
