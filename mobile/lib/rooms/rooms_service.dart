@@ -1,5 +1,4 @@
 import 'package:music_room/core/api_client.dart';
-import 'package:music_room/auth/session_store.dart';
 import 'package:music_room/data/models/room.dart';
 
 class RoomFailure implements Exception {
@@ -13,12 +12,9 @@ class RoomFailure implements Exception {
 }
 
 class RoomService {
-  RoomService({ApiClient? api, SessionStore? store})
-    : _api = api ?? ApiClient(),
-      _store = store ?? SessionStore();
+  RoomService({ApiClient? api}) : _api = api ?? ApiClient();
 
   final ApiClient _api;
-  final SessionStore _store;
   static const _messages = {
     'validation_failed': 'Error validation failed',
     'network_error': 'Error network',
@@ -33,10 +29,6 @@ class RoomService {
     String? description,
     List<DateTime>? window,
   }) async {
-    final String? token = await _store.accessToken();
-    if (token == null) {
-      throw RoomFailure('unauthorized', _messages['unauthorized'] ?? 'Error');
-    }
     try {
       final res = await _api.postJson('/v1/rooms', {
         "name": name,
@@ -49,7 +41,7 @@ class RoomService {
                 "start": window[0].toUtc().toIso8601String(),
                 "end": window[1].toUtc().toIso8601String(),
               },
-      }, accessToken: token);
+      }, auth: true);
 
       return Room.fromJson(res.body);
     } on ApiException catch (e) {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
+import 'package:music_room/auth/auth_service.dart';
+import 'package:music_room/core/services.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -25,12 +27,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1)); // API CALL
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _linkSent = true;
-    });
+    try {
+      // Same answer whether the account exists or not: the screen must not tell either
+      await authService.forgotPassword(_email.text);
+      if (mounted) setState(() => _linkSent = true);
+    } on AuthFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override

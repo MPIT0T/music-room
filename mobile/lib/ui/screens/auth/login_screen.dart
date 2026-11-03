@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/auth/auth_service.dart';
+import 'package:music_room/core/services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,22 +25,43 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _signIn() async {
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
     try {
-      if (!_formKey.currentState!.validate()) return;
-      setState(() => _isLoading = true);
-      await authService.signInWithPassword(_email.text.trim(), _password.text);
-      if (!mounted) return;
-      context.go('/discover');
+      await authService.login(_email.text, _password.text);
+      if (mounted) context.go('/discover');
     } on AuthFailure catch (e) {
-      if (mounted) _showError(context, e.message);
+      if (mounted) _showError(e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(AuthFailure e) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(e.message),
+        // Right password, unverified email: offer a new link instead of a dead end
+        action: e.code == 'email_not_verified'
+            ? SnackBarAction(label: 'Resend', onPressed: _resend)
+            : null,
+      ),
+    );
+  }
+
+  Future<void> _resend() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await authService.resendVerification(_email.text);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('A new link is on its way. Check your inbox.'),
+        ),
+      );
+    } on AuthFailure catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -78,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 AppPasswordInput(
                   label: 'Password',
                   controller: _password,
-                  onFieldSubmit: (_) => _signIn(),
+                  onFieldSubmit: (_) => _submit(),
                 ),
                 const SizedBox(height: Space.sm),
                 Align(
@@ -98,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 AppButton(
                   label: 'Log in',
                   isLoading: _isLoading,
-                  onPressed: _signIn,
+                  onPressed: _submit,
                 ),
                 const SizedBox(height: Space.sm),
                 Row(
