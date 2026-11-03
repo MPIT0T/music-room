@@ -1,4 +1,4 @@
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { buildApp } from '../src/app.js';
@@ -10,17 +10,34 @@ const RUN = randomUUID().slice(0, 8);
 let app;
 const users = {};
 
-async function createUser(name) {
-  const [[row]] = await app.db.query('INSERT INTO users (display_name) VALUES (?) RETURNING id', [
-    `rooms-${RUN}-${name}`,
-  ]);
+// Records what the routes send through Socket.IO, without a socket server
+const sent = [];
+const fakeIo = {
+  to: (channel) => ({ emit: (event, data) => sent.push({ to: channel, event, data }) }),
+  in: (target) => ({ socketsLeave: (channel) => sent.push({ in: target, leave: channel }) }),
+};
+
+// Premium unless said otherwise: most tests are about rooms, not plans
+async function createUser(name, plan = 'premium') {
+  const [[row]] = await app.db.query(
+    'INSERT INTO users (display_name, plan) VALUES (?, ?) RETURNING id',
+    [`rooms-${RUN}-${name}`, plan],
+  );
   const token = await app.tokens.signAccessToken({ userId: row.id, deviceId: randomUUID() });
   return { id: row.id, token };
 }
 
 before(async () => {
   app = await buildApp({ logger: false });
+  app.decorate('io', fakeIo);
   for (const name of ['owner', 'guest', 'stranger']) users[name] = await createUser(name);
+  for (const name of ['free', 'freeRace', 'freeUpgrade']) {
+    users[name] = await createUser(name, 'free');
+  }
+});
+
+beforeEach(() => {
+  sent.length = 0;
 });
 
 after(async () => {
@@ -302,6 +319,28 @@ test('PATCH /v1/rooms/:id changes only the fields sent and bumps the version', a
   assert.deepEqual((await getRoom(users.owner, created.id)).json(), room);
 });
 
+test('PATCH /v1/rooms/:id tells subscribers, only once the write succeeded', async () => {
+  const created = (await createRoom(users.owner, { name: 'Watched' })).json();
+
+  assert.equal((await patchRoom(users.owner, created.id, { name: 'v1' }, '"0"')).statusCode, 200);
+  assert.deepEqual(sent, [
+    {
+      to: `room:${created.id}`,
+      event: 'room.changed',
+      data: { roomId: created.id, version: 1, change: 'settings' },
+    },
+  ]);
+
+  sent.length = 0;
+  assert.equal((await patchRoom(users.owner, created.id, { name: 'v2' }, '"0"')).statusCode, 412);
+  assert.equal((await patchRoom(users.guest, created.id, { name: 'v2' }, '"1"')).statusCode, 403);
+  assert.equal(
+    (await patchRoom(users.owner, created.id, { accessPolicy: 'place_time' }, '"1"')).statusCode,
+    400,
+  );
+  assert.deepEqual(sent, []);
+});
+
 test('PATCH /v1/rooms/:id can clear the description and switch to place_time', async () => {
   const created = (await createRoom(users.owner, { name: 'Party', description: 'x' })).json();
 
@@ -532,4 +571,103 @@ test('deleteRoom never deletes a room for someone who is not its owner', async (
     [1, 2, 3].map(() => deleteRoom(app.db, created.id, users.owner.id)),
   );
   assert.equal(results.filter(Boolean).length, 1);
+});
+
+// ---------- free and premium ----------
+
+const setPlan = (user, plan) =>
+  app.inject({
+    method: 'PUT',
+    url: '/v1/me/subscription',
+    headers: auth(user),
+    payload: { plan },
+  });
+
+test('a free account hosts one public room open to everyone, nothing more', async () => {
+  for (const [payload, path] of [
+    { visibility: 'private' },
+    { accessPolicy: 'invited' },
+    { beaconMinor: minor() },
+  ].map((extra) => [{ name: 'Not on free', ...extra }, Object.keys(extra)[0]])) {
+    const body = assertProblem(await createRoom(users.free, payload), 403, 'premium_required');
+    assert.deepEqual(
+      body.errors.map((error) => error.path),
+      [path],
+    );
+  }
+
+  const res = await createRoom(users.free, { name: 'Free party' });
+  assert.equal(res.statusCode, 201);
+  assertProblem(await createRoom(users.free, { name: 'Second' }), 403, 'room_limit_reached');
+
+  // Deleting it frees the slot
+  assert.equal((await deleteRoomReq(users.free, res.json().id)).statusCode, 204);
+  assert.equal((await createRoom(users.free, { name: 'Again' })).statusCode, 201);
+});
+
+test('a free account sending several creations at once still gets one room', async () => {
+  const results = await Promise.all(
+    Array.from({ length: 5 }, (_, i) => createRoom(users.freeRace, { name: `Race ${i}` })),
+  );
+  const codes = results.map((res) => res.statusCode).sort();
+  assert.deepEqual(codes, [201, 403, 403, 403, 403]);
+  for (const res of results.filter((r) => r.statusCode === 403)) {
+    assert.equal(res.json().code, 'room_limit_reached');
+  }
+});
+
+test('PATCH by a free owner: premium values refused, the rest allowed', async () => {
+  const [[{ id }]] = await app.db.query('SELECT id FROM rooms WHERE owner_id = ?', [users.free.id]);
+  for (const payload of [
+    { visibility: 'private' },
+    { accessPolicy: 'invited' },
+    { beaconMinor: minor() },
+  ]) {
+    assertProblem(await patchRoom(users.free, id, payload, '"0"'), 403, 'premium_required');
+  }
+  const res = await patchRoom(users.free, id, { name: 'Renamed', description: 'ok' }, '"0"');
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().version, 1);
+});
+
+test('back on free: rooms made on premium keep their settings and can be downgraded', async () => {
+  const user = users.freeUpgrade;
+  assert.equal((await setPlan(user, 'premium')).statusCode, 204);
+  const beacon = minor();
+  const created = await createRoom(user, {
+    name: 'Made on premium',
+    visibility: 'private',
+    accessPolicy: 'invited',
+    beaconMinor: beacon,
+  });
+  assert.equal(created.statusCode, 201);
+  const { id } = created.json();
+  assert.equal((await createRoom(user, { name: 'Another' })).statusCode, 201);
+
+  assert.equal((await setPlan(user, 'free')).statusCode, 204);
+  assertProblem(await createRoom(user, { name: 'Third' }), 403, 'room_limit_reached');
+
+  // Kept values pass, even sent again; a new premium value does not
+  const renamed = await patchRoom(
+    user,
+    id,
+    { name: 'Still private', visibility: 'private' },
+    '"0"',
+  );
+  assert.equal(renamed.statusCode, 200);
+  assert.equal(renamed.json().beaconMinor, beacon);
+  const changed = await patchRoom(user, id, { beaconMinor: minor() }, '"1"');
+  assert.deepEqual(
+    assertProblem(changed, 403, 'premium_required').errors.map((error) => error.path),
+    ['beaconMinor'],
+  );
+
+  // Downgrading is always allowed, going back up is not
+  const opened = await patchRoom(user, id, { visibility: 'public', beaconMinor: null }, '"1"');
+  assert.equal(opened.statusCode, 200);
+  assertProblem(
+    await patchRoom(user, id, { visibility: 'private' }, '"2"'),
+    403,
+    'premium_required',
+  );
 });
