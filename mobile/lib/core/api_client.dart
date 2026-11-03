@@ -30,12 +30,21 @@ class ApiClient {
   final http.Client _http;
   final String _baseUrl;
 
-  Future<ApiResponse> postJson(String path, Map<String, Object?> body) async {
+  Future<ApiResponse> postJson(
+    String path,
+    Map<String, Object?> body, {
+    String? accessToken,
+  }) async {
     final http.Response res;
     try {
       res = await _http.post(
         Uri.parse('$_baseUrl$path'),
-        headers: {'content-type': 'application/json'},
+        headers: {
+          'content-type': 'application/json',
+          'authorization': ?(accessToken == null
+              ? null
+              : 'Bearer $accessToken'),
+        },
         body: jsonEncode(body),
       );
     } on http.ClientException {
