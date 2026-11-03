@@ -31,11 +31,35 @@ export async function findRoomForUser(db, roomId, userId) {
   return { room: toRoom(rows[0]), isInvited: Boolean(rows[0].is_invited) };
 }
 
+// A beacon talks to anyone nearby: it only ever reveals a public room
+export async function findRoomByBeacon(db, beaconMinor) {
+  const [rows] = await db.query(
+    "SELECT * FROM rooms WHERE beacon_minor = ? AND visibility = 'public'",
+    [beaconMinor],
+  );
+  return rows.length === 0 ? null : toRoom(rows[0]);
+}
+
+// What the user can find: public rooms, and private ones they own or were invited to
+export async function listVisibleRooms(db, userId, limit) {
+  const [rows] = await db.query(
+    `SELECT r.*
+       FROM rooms r
+      WHERE r.visibility = 'public'
+         OR r.owner_id = ?
+         OR EXISTS (SELECT 1 FROM room_members rm WHERE rm.room_id = r.id AND rm.user_id = ?)
+      ORDER BY r.created_at DESC, r.id DESC
+      LIMIT ?`,
+    [userId, userId, limit],
+  );
+  return rows.map(toRoom);
+}
+
 export async function insertRoom(db, ownerId, input) {
   const [rows] = await db.query(
     `INSERT INTO rooms (owner_id, name, description, visibility, access_policy, starts_at, ends_at,
-                        latitude, longitude, radius_m)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        latitude, longitude, radius_m, beacon_minor)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      RETURNING *`,
     [
       ownerId,
@@ -48,6 +72,7 @@ export async function insertRoom(db, ownerId, input) {
       input.place?.lat ?? null,
       input.place?.lng ?? null,
       input.place?.radiusM ?? null,
+      input.beaconMinor,
     ],
   );
   return toRoom(rows[0]);
@@ -58,7 +83,7 @@ export async function updateRoom(db, roomId, expectedVersion, room) {
     `UPDATE rooms
         SET name = ?, description = ?, visibility = ?, access_policy = ?,
             starts_at = ?, ends_at = ?, latitude = ?, longitude = ?, radius_m = ?,
-            version = version + 1
+            beacon_minor = ?, version = version + 1
       WHERE id = ? AND version = ?`,
     [
       room.name,
@@ -70,6 +95,7 @@ export async function updateRoom(db, roomId, expectedVersion, room) {
       room.place?.lat ?? null,
       room.place?.lng ?? null,
       room.place?.radiusM ?? null,
+      room.beaconMinor,
       roomId,
       expectedVersion,
     ],

@@ -162,6 +162,121 @@ test('GET /v1/rooms/:id shows a private room to its owner and invited users only
   }
 });
 
+// GET /v1/rooms: other test files write rooms at the same time, so we check our own rooms only
+
+const listRooms = (user, query = '') =>
+  app.inject({ url: `/v1/rooms${query}`, headers: user ? auth(user) : {} });
+const idsOf = (res) => res.json().rooms.map((room) => room.id);
+// Random per run: beacon_minor is unique across all rooms in the database
+const minor = () => 1000 + Math.floor(Math.random() * 64_000);
+
+test('GET /v1/rooms: public rooms, and private ones only for their owner and members', async () => {
+  const open = (await createRoom(users.owner, { name: 'Listed' })).json();
+  const secret = (
+    await createRoom(users.owner, { name: 'Listed secret', visibility: 'private' })
+  ).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    secret.id,
+    users.guest.id,
+  ]);
+
+  for (const user of [users.owner, users.guest]) {
+    const ids = idsOf(await listRooms(user, '?limit=50'));
+    assert.ok(ids.includes(open.id) && ids.includes(secret.id), 'owner and member see both');
+  }
+  const ids = idsOf(await listRooms(users.stranger, '?limit=50'));
+  assert.ok(ids.includes(open.id));
+  assert.ok(!ids.includes(secret.id), 'a private room is never listed to a stranger');
+});
+
+test('GET /v1/rooms: newest first, limit respected and checked', async () => {
+  const res = await listRooms(users.stranger, '?limit=3');
+  assert.equal(res.statusCode, 200);
+  const dates = res.json().rooms.map((room) => room.createdAt);
+  assert.ok(dates.length <= 3);
+  assert.deepEqual(dates, [...dates].sort().reverse());
+
+  for (const query of ['?limit=0', '?limit=51', '?limit=abc']) {
+    assertProblem(await listRooms(users.stranger, query), 400, 'validation_failed');
+  }
+  assertProblem(await listRooms(null), 401, 'unauthorized');
+});
+
+test('GET /v1/rooms?beacon= finds the public room with that minor, else an empty list', async () => {
+  const beacon = minor();
+  const room = (
+    await createRoom(users.owner, { name: 'Beacon party', beaconMinor: beacon })
+  ).json();
+  assert.equal(room.beaconMinor, beacon);
+
+  const res = await listRooms(users.stranger, `?beacon=${beacon}`);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), { rooms: [room] });
+
+  // An unknown beacon (a neighbour's party, another app) is not an error
+  const other = beacon === 1000 ? 1001 : beacon - 1;
+  const [[taken]] = await app.db.query('SELECT COUNT(*) AS n FROM rooms WHERE beacon_minor = ?', [
+    other,
+  ]);
+  if (Number(taken.n) === 0) {
+    assert.deepEqual((await listRooms(users.stranger, `?beacon=${other}`)).json(), { rooms: [] });
+  }
+  for (const query of ['?beacon=-1', '?beacon=65536', '?beacon=abc']) {
+    assertProblem(await listRooms(users.stranger, query), 400, 'validation_failed');
+  }
+});
+
+test('a beacon never reveals a private room, not even to its members', async () => {
+  const beacon = minor();
+  const room = (
+    await createRoom(users.owner, {
+      name: 'Hidden beacon',
+      visibility: 'private',
+      beaconMinor: beacon,
+    })
+  ).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    room.id,
+    users.guest.id,
+  ]);
+
+  for (const user of [users.stranger, users.guest, users.owner]) {
+    assert.deepEqual((await listRooms(user, `?beacon=${beacon}`)).json(), { rooms: [] });
+  }
+});
+
+test('beaconMinor: one room per minor (409 beacon_taken), the owner sets or clears it', async () => {
+  const beacon = minor();
+  const first = (await createRoom(users.owner, { name: 'First', beaconMinor: beacon })).json();
+
+  assertProblem(
+    await createRoom(users.guest, { name: 'Copycat', beaconMinor: beacon }),
+    409,
+    'beacon_taken',
+  );
+  const second = (await createRoom(users.owner, { name: 'Second' })).json();
+  assertProblem(
+    await patchRoom(users.owner, second.id, { beaconMinor: beacon }, '"0"'),
+    409,
+    'beacon_taken',
+  );
+
+  // Cleared on the first room, the minor is free for the second one
+  const cleared = await patchRoom(users.owner, first.id, { beaconMinor: null }, '"0"');
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.json().beaconMinor, null);
+  const moved = await patchRoom(users.owner, second.id, { beaconMinor: beacon }, '"0"');
+  assert.equal(moved.statusCode, 200);
+  assert.deepEqual(idsOf(await listRooms(users.stranger, `?beacon=${beacon}`)), [second.id]);
+
+  // Only the owner sets it: someone else cannot take the beacon off the room
+  assertProblem(
+    await patchRoom(users.guest, second.id, { beaconMinor: null }, '"1"'),
+    403,
+    'forbidden',
+  );
+});
+
 const patchRoom = (user, id, payload, ifMatch) =>
   app.inject({
     method: 'PATCH',

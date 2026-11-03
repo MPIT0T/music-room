@@ -6,14 +6,22 @@ import { canManage } from '../rooms/access.js';
 import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
 import { clearPlayback } from '../rooms/playback.js';
-import { deleteRoom, insertRoom, updateRoom } from '../rooms/repo.js';
+import {
+  deleteRoom,
+  findRoomByBeacon,
+  insertRoom,
+  listVisibleRooms,
+  updateRoom,
+} from '../rooms/repo.js';
 import {
   createRoomBody,
   ifMatchHeaders,
+  listRoomsQuery,
   patchRoomBody,
   roomParams,
   roomResponse,
   roomRuleIssues,
+  roomsResponse,
 } from '../rooms/schemas.js';
 
 const etag = (room) => `"${room.version}"`;
@@ -50,10 +58,11 @@ export default async function roomsRoutes(app) {
       'The caller becomes the owner. Returns the room with its ETag. `visibility`: who finds ' +
       'the room (private: owner and members only). `accessPolicy`: who proposes and votes ' +
       '(everyone, invited members, or place_time: people inside `place` during `window`, ' +
-      'both required, who send their position in X-Location). The owner is never restricted.',
+      'both required, who send their position in X-Location). The owner is never restricted. ' +
+      '409 beacon_taken if another room already uses `beaconMinor`.',
     security: [{ bearerAuth: [] }],
     body: createRoomBody,
-    response: { 201: roomResponse, ...problems(400, 401) },
+    response: { 201: roomResponse, ...problems(400, 401, 409) },
   };
 
   app.post('/v1/rooms', { schema: createSchema }, async (request, reply) => {
@@ -63,6 +72,27 @@ export default async function roomsRoutes(app) {
       .header('etag', etag(room))
       .header('location', `/v1/rooms/${room.id}`)
       .send(room);
+  });
+
+  const listSchema = {
+    tags: ['rooms'],
+    summary: 'Find rooms',
+    description:
+      'Public rooms, plus the private ones the caller owns or was invited to, newest first. ' +
+      'With `beacon`, the minor of an iBeacon the phone picked up: only the public room ' +
+      'with that minor (a private room is never revealed by a beacon), or an empty list.',
+    security: [{ bearerAuth: [] }],
+    querystring: listRoomsQuery,
+    response: { 200: roomsResponse, ...problems(400, 401) },
+  };
+
+  app.get('/v1/rooms', { schema: listSchema }, async (request) => {
+    const { beacon, limit } = request.query;
+    if (beacon !== undefined) {
+      const room = await findRoomByBeacon(app.db, beacon);
+      return { rooms: room ? [room] : [] };
+    }
+    return { rooms: await listVisibleRooms(app.db, request.userId, limit) };
   });
 
   const getSchema = {
@@ -87,12 +117,13 @@ export default async function roomsRoutes(app) {
     summary: 'Edit a room',
     description:
       'Owner only. Send only the fields to change, and the ETag from GET in If-Match: ' +
-      '428 without it, 412 if the room changed since. Returns the room with its new ETag.',
+      '428 without it, 412 if the room changed since. Returns the room with its new ETag. ' +
+      '409 beacon_taken if another room already uses `beaconMinor`.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
     headers: ifMatchHeaders,
     body: patchRoomBody,
-    response: { 200: roomResponse, ...problems(400, 401, 403, 404, 412, 428) },
+    response: { 200: roomResponse, ...problems(400, 401, 403, 404, 409, 412, 428) },
   };
 
   app.patch('/v1/rooms/:id', { schema: patchSchema }, async (request, reply) => {

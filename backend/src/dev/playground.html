@@ -446,6 +446,10 @@
                 <label for="room-radius">Rayon (m)</label>
                 <input id="room-radius" type="number" min="10" placeholder="200" />
               </div>
+              <div>
+                <label for="room-beacon">Beacon minor</label>
+                <input id="room-beacon" type="number" min="0" max="65535" placeholder="0 à 65535" />
+              </div>
             </div>
             <div class="actions">
               <button class="primary" type="submit">POST /v1/rooms</button>
@@ -471,13 +475,30 @@
             <button class="primary" type="button" id="get-btn">GET</button>
             <button type="button" id="no-token">GET sans token</button>
           </div>
+
+          <h2>Trouver des rooms · <code>GET /v1/rooms</code></h2>
+          <p class="hint">
+            Sans beacon : les rooms publiques et les privées de l'utilisateur actif (propriétaire ou
+            invité). Avec un minor : ce que verrait un téléphone qui capte ce beacon, c'est-à-dire
+            la room publique qui le porte, ou une liste vide (jamais une room privée).
+          </p>
+          <div class="row">
+            <div>
+              <label for="find-beacon">Beacon minor</label>
+              <input id="find-beacon" type="number" min="0" max="65535" placeholder="42" />
+            </div>
+            <button class="primary" type="button" id="find-beacon-btn">Capter le beacon</button>
+            <button type="button" id="list-btn">Lister mes rooms</button>
+          </div>
         </section>
 
         <section data-panel="patch" role="tabpanel">
           <h2>Modifier une room · <code>PATCH /v1/rooms/:id</code></h2>
           <p class="hint">
             Envoie seulement les champs à changer. L'If-Match est rempli avec le dernier ETag reçu :
-            vide-le pour voir le 428, mets une vieille version pour voir le 412.
+            vide-le pour voir le 428, mets une vieille version pour voir le 412. Beacon :
+            <code>{ "beaconMinor": 42 }</code> l'attribue (409 beacon_taken s'il est déjà pris),
+            <code>null</code> le retire.
           </p>
           <form id="patch-form">
             <label for="patch-json">Corps JSON</label>
@@ -955,6 +976,7 @@
         if (lat || lng || radius) {
           body.place = { lat: Number(lat), lng: Number(lng), radiusM: Number(radius) };
         }
+        if ($('room-beacon').value) body.beaconMinor = Number($('room-beacon').value);
         return body;
       }
 
@@ -1012,6 +1034,18 @@
       };
       $('get-btn').onclick = () => getRoom(targetId());
       $('no-token').onclick = () => getRoom(targetId() || 'x', { anonymous: true });
+
+      // Found rooms go to the room list, like a GET of each one
+      async function findRooms(query) {
+        if (!activeUser()) return alertNoUser();
+        const res = await call('GET', `/v1/rooms${query}`);
+        if (res.status === 200) [...res.data.rooms].reverse().forEach(rememberRoom);
+      }
+      $('find-beacon-btn').onclick = () => {
+        const minor = $('find-beacon').value.trim();
+        findRooms(`?beacon=${encodeURIComponent(minor)}`);
+      };
+      $('list-btn').onclick = () => findRooms('?limit=20');
 
       async function deleteRoom(id, { anonymous = false } = {}) {
         const user = anonymous ? null : activeUser();

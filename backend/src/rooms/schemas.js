@@ -10,6 +10,9 @@ const isoDate = z.codec(z.iso.datetime({ offset: true }), z.date(), {
 const visibility = z.enum(['public', 'private']);
 const accessPolicy = z.enum(['everyone', 'invited', 'place_time']);
 const roomWindow = z.object({ start: isoDate, end: isoDate });
+// iBeacon minor: 16 bits, one per room (the UUID and major are fixed for the whole app)
+const beaconMinor = z.number().int().min(0).max(65_535);
+
 const latitude = z.number().min(-90).max(90);
 const longitude = z.number().min(-180).max(180);
 const roomPlace = z.object({
@@ -45,6 +48,10 @@ export const createRoomBody = z
     accessPolicy: accessPolicy.default('everyone'),
     window: roomWindow.nullable().default(null),
     place: roomPlace.nullable().default(null),
+    beaconMinor: beaconMinor
+      .nullable()
+      .default(null)
+      .describe('Minor broadcast by the beacon at the event; unique across rooms'),
   })
   .superRefine(addRuleIssues);
 
@@ -56,6 +63,7 @@ export const patchRoomBody = z
     accessPolicy: accessPolicy.optional(),
     window: roomWindow.nullable().optional(),
     place: roomPlace.nullable().optional(),
+    beaconMinor: beaconMinor.nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'at least one field is required' })
   .refine((body) => body.window == null || body.window.end > body.window.start, {
@@ -83,6 +91,17 @@ export const roomResponse = z.object({
   createdAt: isoDate,
   updatedAt: isoDate,
 });
+
+export const listRoomsQuery = z.object({
+  beacon: z.coerce
+    .number()
+    .pipe(beaconMinor)
+    .optional()
+    .describe('Minor of a beacon the phone picked up: returns that public room only'),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const roomsResponse = z.object({ rooms: z.array(roomResponse) });
 
 export const memberParams = z.object({
   id: z.string().max(64),
