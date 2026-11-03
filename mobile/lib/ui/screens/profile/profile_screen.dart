@@ -27,13 +27,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _busy = true);
     try {
       await action();
+      // The session may have expired meanwhile and the router left this screen
+      if (!mounted) return;
       _show(done);
       _reload();
     } on AuthFailure catch (e) {
-      _show(e.message);
+      if (mounted) _show(e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  // Linking needs the current password (API): a stolen session alone must not add a way in
+  Future<void> _link(String idToken) async {
+    final password = await _askPassword();
+    if (password == null || !mounted) return;
+    await _run(
+      () => authService.linkGoogle(idToken, password),
+      'Google account linked.',
+    );
+  }
+
+  Future<String?> _askPassword() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm your password'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Current password'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Link'),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
   }
 
   @override
@@ -67,10 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
                 return GoogleSignInButton(
                   label: 'Link Google account',
-                  onIdToken: (idToken) => _run(
-                    () => authService.linkGoogle(idToken),
-                    'Google account linked.',
-                  ),
+                  onIdToken: _link,
                   onError: _show,
                 );
               },

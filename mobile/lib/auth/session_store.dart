@@ -20,11 +20,13 @@ class SessionStore {
 
   /// Stores a `session` object of the contract (login, OAuth, refresh).
   Future<void> save(Map<String, dynamic> session) async {
-    await _storage.write(key: _access, value: session['accessToken'] as String);
+    // Refresh token first: the server already rotated it, so if the app dies mid-save the new
+    // one must be the one kept. The old one, replayed later, would look stolen and revoke us.
     await _storage.write(
       key: _refresh,
       value: session['refreshToken'] as String,
     );
+    await _storage.write(key: _access, value: session['accessToken'] as String);
     await _storage.write(key: _device, value: session['deviceId'] as String);
   }
 
