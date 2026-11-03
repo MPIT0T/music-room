@@ -1,4 +1,5 @@
 import 'package:music_room/core/api_client.dart';
+import 'package:music_room/core/services.dart';
 import 'package:music_room/data/models/room.dart';
 
 class RoomFailure implements Exception {
@@ -12,7 +13,9 @@ class RoomFailure implements Exception {
 }
 
 class RoomService {
-  RoomService({ApiClient? api}) : _api = api ?? ApiClient();
+  // The shared client: a private one ignores the server address set in the app, sends no
+  // User-Agent, and refreshes on its own, which the API can take for token reuse
+  RoomService({ApiClient? api}) : _api = api ?? apiClient;
 
   final ApiClient _api;
   static const _messages = {
