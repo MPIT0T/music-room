@@ -1,6 +1,8 @@
 // Profile reads for /v1/me and /v1/users/:id, grouped by visibility (contract, ACC-8):
 // public = every signed-in user, friends = accepted friends, private = the owner only.
 
+import { areFriends } from '../friends/repo.js';
+
 export async function genresOf(db, userId) {
   const [rows] = await db.query(
     `SELECT g.id, g.name FROM user_genres ug JOIN genres g ON g.id = ug.genre_id
@@ -8,18 +10,6 @@ export async function genresOf(db, userId) {
     [userId],
   );
   return rows.map(({ id, name }) => ({ id: Number(id), name }));
-}
-
-// Read-only on purpose: the friends feature (requests, accept, remove) belongs to its own
-// module. Both orders are checked so this does not depend on how rows are ordered.
-export async function areFriends(db, a, b) {
-  const [rows] = await db.query(
-    `SELECT 1 FROM friendships
-     WHERE status = 'accepted' AND ((user_a = ? AND user_b = ?) OR (user_a = ? AND user_b = ?))
-     LIMIT 1`,
-    [a, b, b, a],
-  );
-  return rows.length > 0;
 }
 
 async function profileRow(db, userId, { withPrivate }) {
