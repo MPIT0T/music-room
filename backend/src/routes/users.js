@@ -5,6 +5,7 @@ import { HttpProblem, problemSchema } from '../errors.js';
 import { consumeEmailToken, issueEmailToken } from '../auth/email-tokens.js';
 import { emailField, safeText } from '../validation.js';
 import { rateLimit } from '../security/rate-limit.js';
+import { sendInBackground } from '../mail/background.js';
 
 const accepted = z
   .null()
@@ -20,14 +21,6 @@ const signupBody = z.object({
 const verifyBody = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/) });
 
 const resendBody = z.object({ email: emailField });
-
-// Not awaited: the answer must not depend on SMTP speed or failures.
-// Only the codes are logged: SMTP error messages can quote the recipient address
-function sendInBackground(request, sending, what) {
-  sending.catch((err) =>
-    request.log.error({ code: err.code, responseCode: err.responseCode }, `${what} email failed`),
-  );
-}
 
 export default async function usersRoutes(app) {
   const signupSchema = {

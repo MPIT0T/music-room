@@ -8,6 +8,10 @@ export const limits = {
   login: { name: 'login', limit: 5, windowSeconds: 15 * 60 },
   // Credential stuffing: one IP trying many emails. Generous, a 42 cluster shares one IP
   loginIp: { name: 'login-ip', limit: 50, windowSeconds: 15 * 60 },
+  // Contract: 3 reset requests per hour per email, counted whether the account exists or not
+  passwordReset: { name: 'password-reset', limit: 3, windowSeconds: 60 * 60 },
+  // Contract: 5 wrong current passwords per 15 min per user (a stolen access token guessing it)
+  changePassword: { name: 'change-password', limit: 5, windowSeconds: 15 * 60 },
   // Each search is a Jamendo call on our client ID: typing with debounce stays well below
   trackSearch: { name: 'track-search', limit: 30, windowSeconds: 60 },
   // Prevents an account from spamming friend requests
