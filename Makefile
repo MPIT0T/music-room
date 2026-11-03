@@ -9,8 +9,12 @@ IS_PROD = $(findstring compose.prod.yml,$(RUNNING))
 STACK   = $(if $(IS_PROD),$(PROD),$(DEV))
 DEV_ONLY = $(if $(IS_PROD),$(error the prod stack is running: make stop, then make dev))
 
+# Load test: s= scenario file in load/ (without .js), vus = virtual users
+s   ?= connect
+vus ?= 50
+
 .DEFAULT_GOAL := help
-.PHONY: help doctor install add dev stop logs ps test lint format migrate seed shell db mobile clean fclean re prod
+.PHONY: help doctor install add dev stop logs ps test lint format migrate seed shell db mobile load clean fclean re prod
 
 help: ## Command list
 	@echo "Usage: make <target>"
@@ -91,8 +95,24 @@ shell: ## Shell inside the api container
 db: ## MariaDB client
 	$(STACK) exec db sh -c 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" "$$MARIADB_DATABASE"'
 
+# Public client ID read from .env (no secret), passed to Flutter at build time
+GOOGLE_CLIENT_ID_WEB = $(shell sed -n 's/^GOOGLE_CLIENT_ID_WEB=//p' .env 2>/dev/null)
+
 mobile: ## Launches the flutter app (hot reload)
-	cd mobile && flutter run
+	@# The phone (or emulator) reaches the api on its own localhost:3000; ignored without adb
+	-@adb reverse tcp:3000 tcp:3000 >/dev/null 2>&1
+	@# Fixed web port: Google only accepts the origins declared in the OAuth client
+	cd mobile && flutter run --web-port 5000 --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
+
+load: ## Load test against the prod stack: make load s=connect vus=200
+	$(if $(IS_PROD),,$(error the load test needs the prod stack: make stop, then make prod))
+	@test -f load/$(s).js || { echo "no scenario load/$(s).js"; exit 1; }
+	@# -T: no TTY, so stdout carries the JSON only
+	$(PROD) exec -T -e LOAD_USERS=$(vus) api node src/db/load-seed.js > load/.data.json
+	docker run --rm --network music-room-net -v "$(CURDIR)/load:/load:ro" -w /load \
+	-e VUS=$(vus) grafana/k6:2.3.0 run $(s).js
+
+
 
 clean: ## Soft clean: removes containers, keeps DB and images
 	$(DEV) down --remove-orphans

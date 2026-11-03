@@ -2,9 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_room/auth/auth_service.dart';
+import 'package:music_room/auth/server_settings_dialog.dart';
+import 'package:music_room/core/services.dart';
+import 'package:music_room/auth/google_sign_in_button.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
+
+  Future<void> _signIn(BuildContext context, String idToken) async {
+    try {
+      // created or existing: same destination until there is an onboarding screen
+      await authService.signInWithGoogle(idToken);
+      if (context.mounted) context.go('/discover');
+    } on AuthFailure catch (e) {
+      if (context.mounted) _showError(context, e.message);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,6 +31,15 @@ class WelcomeScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: 'Server address',
+            icon: const Icon(Icons.settings),
+            onPressed: () => showServerSettingsDialog(context),
+          ),
+        ],
+      ),
       body: AppScreenBody(
         fillHeight: true,
         maxWidth: 480,
@@ -39,10 +67,9 @@ class WelcomeScreen extends StatelessWidget {
               textAlign: .center,
             ),
             const Spacer(),
-            AppButton(
-              label: 'Continue with Google',
-              onPressed: () {},
-              icon: Icons.g_mobiledata_rounded,
+            GoogleSignInButton(
+              onIdToken: (idToken) => _signIn(context, idToken),
+              onError: (message) => _showError(context, message),
             ),
             const SizedBox(height: Space.sm),
             AppButton(

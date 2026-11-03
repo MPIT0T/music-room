@@ -6,10 +6,17 @@ import { safeText } from '../validation.js';
 // Development only (see buildApp): a page to try the API by hand, at http://localhost:3000/dev.
 // It also mints access tokens without a password, so it must never be registered in production.
 export default async function playgroundRoutes(app) {
-  const page = await readFile(new URL('./playground.html', import.meta.url), 'utf8');
+  const pageUrl = new URL('./playground.html', import.meta.url);
+  // Fails at startup, not on the first visit, if the page is missing
+  await readFile(pageUrl);
 
+  // Read on every visit: node --watch only restarts on imported .js files, so a page read
+  // once at startup would hide every edit of playground.html until the API restarts
   app.get('/dev', { schema: { hide: true } }, async (request, reply) =>
-    reply.type('text/html; charset=utf-8').send(page),
+    reply
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .send(await readFile(pageUrl, 'utf8')),
   );
 
   const devUserBody = z.object({ displayName: safeText({ min: 1, max: 50 }) });

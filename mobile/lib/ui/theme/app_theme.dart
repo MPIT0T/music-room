@@ -179,5 +179,15 @@ ThemeData buildAppTheme(Brightness brightness) {
       padding: .symmetric(horizontal: Space.md, vertical: Space.xs),
       elevation: 0,
     ),
+    sliderTheme: SliderThemeData(
+      trackHeight: 4,
+      thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+      overlayShape: .noOverlay,
+      activeTrackColor: scheme.primary,
+      inactiveTrackColor: scheme.surfaceContainerHigh,
+      thumbColor: scheme.primary,
+      overlayColor: scheme.primary.withValues(alpha: 0.12),
+      padding: .zero,
+    ),
   );
 }

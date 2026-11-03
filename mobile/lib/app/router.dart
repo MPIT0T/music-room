@@ -1,10 +1,22 @@
 import 'package:go_router/go_router.dart';
+import 'package:music_room/core/services.dart';
 import 'package:music_room/ui/screens/screens.dart';
 import 'package:music_room/app/shell.dart';
+
+const _authScreens = {'/welcome', '/login', '/signup', '/forgot-password'};
 
 abstract final class AppRouterConfig {
   static final GoRouter router = GoRouter(
     initialLocation: '/welcome',
+    // Subject V.1: the app is used with an account. Signed in: the auth screens are skipped;
+    // signed out: only the auth screens are reachable.
+    redirect: (context, state) async {
+      final signedIn = await sessionStore.hasSession();
+      final onAuthScreen = _authScreens.contains(state.matchedLocation);
+      if (signedIn && onAuthScreen) return '/discover';
+      if (!signedIn && !onAuthScreen) return '/welcome';
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/welcome',
@@ -18,6 +30,12 @@ abstract final class AppRouterConfig {
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/room/:id',
+        builder: (context, state) {
+          return const PlayerScreen();
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

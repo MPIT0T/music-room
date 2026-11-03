@@ -29,6 +29,10 @@ export function canManage(room, role) {
   return role === 'owner';
 }
 
+export function canRemoveMember(room, role, actorId, memberId) {
+  return role === 'owner' || (role === 'invited' && actorId === memberId);
+}
+
 export function isWithinWindow(window, now) {
   if (window == null) return true;
   const t = now.getTime();

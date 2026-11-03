@@ -1,10 +1,12 @@
-# Contrat d'API : authentification (v1.1)
+# Contrat d'API : authentification (v1.2)
 
 Statut : **proposition, phase 1**. Toute modification de ce contrat passe par une PR.
 
 v1.1 : `User-Agent` normalisé, limite sur le renvoi d'email, profil (`/v1/me`), changement de mot de passe, liaison Google, appareils.
 
 Révision v1.1 : `deviceId` à la connexion, pour qu'un appareil qui se reconnecte garde sa ligne `devices` et ses délégations.
+
+v1.2 : liste des genres (`GET /v1/genres`), profil d'un autre utilisateur filtré par ACC-8 (`GET /v1/users/:id`), règles précises de `bio`, `phone` et `birthDate`.
 
 Base URL : `APP_BASE_URL` (dev : `http://localhost:3000`). Toutes les routes sont préfixées par `/v1`.
 
@@ -242,7 +244,8 @@ Règles de liaison de compte :
 | 400 | `unsupported_provider` | `provider` ≠ `google` |
 | 401 | `invalid_oauth_token` | signature, expiration ou audience invalide |
 | 403 | `oauth_email_not_verified` | Google indique un email non vérifié |
-| 503 | `oauth_unavailable` | client ID non configuré côté serveur |
+| 409 | `already_linked` | l'email Google est celui d'un compte qui a déjà un **autre** compte Google lié |
+| 503 | `oauth_unavailable` | client ID non configuré côté serveur, ou clés publiques de Google injoignables |
 
 ## `POST /v1/sessions/refresh` : renouveler les tokens
 
@@ -348,12 +351,12 @@ Corps : uniquement les champs à modifier. `null` efface un champ facultatif.
 | Champ | Contraintes |
 |---|---|
 | `displayName` | 1–50 caractères, ne peut pas être `null` |
-| `bio` | ≤ 500 caractères |
+| `bio` | ≤ 500 caractères ; seuls les retours à la ligne sont acceptés comme caractères de contrôle |
 | `city` | ≤ 100 caractères |
 | `realName` | ≤ 100 caractères |
-| `phone` | ≤ 30 caractères |
-| `birthDate` | `AAAA-MM-JJ`, dans le passé |
-| `genreIds` | ≤ 20 ids existants ; remplace la liste entière |
+| `phone` | 3–30 caractères parmi chiffres, espaces, `+`, `(`, `)`, `.` et `-` |
+| `birthDate` | `AAAA-MM-JJ`, dans le passé, à partir de 1900 |
+| `genreIds` | ≤ 20 ids existants, sans doublon (liste : `GET /v1/genres`) ; remplace la liste entière |
 
 `email` et `avatarUrl` ne sont pas modifiables en v1.1 : changer d'email demande un nouveau flux de vérification, et l'avatar demandera un upload (une URL libre permettrait de faire charger n'importe quelle adresse par les autres utilisateurs).
 
@@ -479,6 +482,47 @@ Un appareil = une session (voir « Tokens »). Routes protégées par `Authoriza
 
 ---
 
+## Profils et genres (v1.2)
+
+Toutes ces routes demandent `Authorization: Bearer <accessToken>`.
+
+### `GET /v1/genres` : genres musicaux
+
+**Réponse `200`**, triée par nom :
+
+```json
+{ "genres": [{ "id": 3, "name": "Jazz" }, { "id": 1, "name": "Pop" }] }
+```
+
+Sert à choisir ses préférences musicales (`genreIds` de `PATCH /v1/me`).
+
+### `GET /v1/users/:id` : profil d'un autre utilisateur
+
+Ce que verra un utilisateur sur la page de profil d'un autre, selon les groupes ACC-8 de l'objet `me` :
+
+```json
+{
+  "id": "0192f3a4-7b1c-7d2e-9f00-1a2b3c4d5e6f",
+  "relationship": "friend",
+  "public": { "displayName": "Max", "avatarUrl": null, "bio": "Fan de jazz", "genres": [{ "id": 3, "name": "Jazz" }] },
+  "friends": { "city": "Paris", "phone": null }
+}
+```
+
+| `relationship` | `friends` |
+|---|---|
+| `self` (mon propre id) | renvoyé |
+| `friend` (amitié **acceptée**) | renvoyé |
+| `none` (aucune amitié, ou demande en attente) | `null` |
+
+`private` (`realName`, `birthDate`, `email`) n'est **jamais** renvoyé par cette route : seul son propriétaire le voit, via `GET /v1/me`.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 404 | `user_not_found` | id inconnu **ou mal formé** (même réponse) |
+
+---
+
 ## Socket.IO
 
 Connexion avec l'access token dans le handshake :
@@ -516,3 +560,5 @@ En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnect
 | GET | `/v1/me/devices` | Bearer | 200 |
 | PATCH | `/v1/me/devices/:id` | Bearer | 200 `device` |
 | DELETE | `/v1/me/devices/:id` | Bearer | 204 |
+| GET | `/v1/genres` | Bearer | 200 |
+| GET | `/v1/users/:id` | Bearer | 200 profil |

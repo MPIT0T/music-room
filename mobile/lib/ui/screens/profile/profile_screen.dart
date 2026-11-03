@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_room/core/services.dart';
 import 'package:music_room/data/models/profile.dart';
-import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
+import 'package:music_room/ui/widgets/widgets.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -19,7 +20,6 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text("Profile", style: tt.titleLarge)),
       body: AppScreenBody(
@@ -57,6 +57,16 @@ class ProfileScreen extends StatelessWidget {
               icon: Icons.settings_outlined,
               onPressed: () => context.go('/profile/settings'),
               variant: .secondary,
+            ),
+            const SizedBox(height: Space.sm),
+            AppButton(
+              label: 'Log out',
+              variant: AppButtonVariant.danger,
+              icon: Icons.logout,
+              onPressed: () async {
+                await authService.logout();
+                if (context.mounted) context.go('/welcome');
+              },
             ),
             const Spacer(),
           ],

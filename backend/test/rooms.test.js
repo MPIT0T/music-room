@@ -2,7 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { buildApp } from '../src/app.js';
-import { updateRoom } from '../src/rooms/repo.js';
+import { deleteRoom, updateRoom } from '../src/rooms/repo.js';
 
 // Integration tests: real MariaDB (make test). Users are unique to this run and removed after.
 const RUN = randomUUID().slice(0, 8);
@@ -322,4 +322,87 @@ test('updateRoom writes only if the version is still the expected one, even in a
   const [[row]] = await app.db.query('SELECT name, version FROM rooms WHERE id = ?', [created.id]);
   assert.deepEqual(row, { name: winners[0].name, version: 1 });
   assert.equal(await updateRoom(app.db, created.id, 0, { ...asStored, name: 'late' }), null);
+});
+
+const deleteRoomReq = (user, id) =>
+  app.inject({ method: 'DELETE', url: `/v1/rooms/${id}`, headers: auth(user) });
+
+test('DELETE /v1/rooms/:id removes the room with its members, queue and votes', async () => {
+  const created = (await createRoom(users.owner, { name: 'To delete' })).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    created.id,
+    users.guest.id,
+  ]);
+  const [[track]] = await app.db.query(
+    `INSERT INTO tracks (provider, provider_track_id, title, artist)
+     VALUES ('jamendo', ?, 'Song', 'Artist') RETURNING id`,
+    [`rooms-${RUN}-delete`],
+  );
+  const [[item]] = await app.db.query(
+    'INSERT INTO room_tracks (room_id, track_id, added_by) VALUES (?, ?, ?) RETURNING id',
+    [created.id, track.id, users.owner.id],
+  );
+  await app.db.query('INSERT INTO votes (room_track_id, user_id) VALUES (?, ?)', [
+    item.id,
+    users.guest.id,
+  ]);
+
+  const res = await deleteRoomReq(users.owner, created.id);
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.body, '');
+
+  assertProblem(await getRoom(users.owner, created.id), 404, 'not_found');
+  const leftovers = [
+    ['rooms', 'SELECT 1 FROM rooms WHERE id = ?', created.id],
+    ['room_members', 'SELECT 1 FROM room_members WHERE room_id = ?', created.id],
+    ['room_tracks', 'SELECT 1 FROM room_tracks WHERE room_id = ?', created.id],
+    ['votes', 'SELECT 1 FROM votes WHERE room_track_id = ?', item.id],
+  ];
+  for (const [table, sql, id] of leftovers) {
+    const [rows] = await app.db.query(sql, [id]);
+    assert.equal(rows.length, 0, `${table} should be empty for the deleted room`);
+  }
+  await app.db.query('DELETE FROM tracks WHERE id = ?', [track.id]);
+});
+
+test('DELETE /v1/rooms/:id is for the owner only: 403 if visible, 404 if not', async () => {
+  const open = (await createRoom(users.owner, { name: 'Open' })).json();
+  const secret = (await createRoom(users.owner, { name: 'Hidden', visibility: 'private' })).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    secret.id,
+    users.guest.id,
+  ]);
+
+  assertProblem(await deleteRoomReq(users.stranger, open.id), 403, 'forbidden');
+  assertProblem(await deleteRoomReq(users.guest, secret.id), 403, 'forbidden');
+  // A private room stays hidden: same 404 as a room that does not exist
+  assertProblem(await deleteRoomReq(users.stranger, secret.id), 404, 'not_found');
+  for (const id of [randomUUID(), 'not-a-uuid']) {
+    assertProblem(await deleteRoomReq(users.owner, id), 404, 'not_found');
+  }
+
+  assert.equal((await getRoom(users.owner, open.id)).statusCode, 200);
+  assert.equal((await getRoom(users.owner, secret.id)).statusCode, 200);
+});
+
+test('DELETE /v1/rooms/:id needs an access token, and a second DELETE gets 404', async () => {
+  const created = (await createRoom(users.owner, { name: 'Twice' })).json();
+
+  const anonymous = await app.inject({ method: 'DELETE', url: `/v1/rooms/${created.id}` });
+  assert.equal(anonymous.statusCode, 401);
+
+  assert.equal((await deleteRoomReq(users.owner, created.id)).statusCode, 204);
+  assertProblem(await deleteRoomReq(users.owner, created.id), 404, 'not_found');
+});
+
+test('deleteRoom never deletes a room for someone who is not its owner', async () => {
+  const created = (await createRoom(users.owner, { name: 'Guarded' })).json();
+
+  assert.equal(await deleteRoom(app.db, created.id, users.stranger.id), false);
+  assert.equal((await getRoom(users.owner, created.id)).statusCode, 200);
+
+  const results = await Promise.all(
+    [1, 2, 3].map(() => deleteRoom(app.db, created.id, users.owner.id)),
+  );
+  assert.equal(results.filter(Boolean).length, 1);
 });

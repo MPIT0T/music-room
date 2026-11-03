@@ -68,3 +68,18 @@ export const roomResponse = z.object({
   createdAt: isoDate,
   updatedAt: isoDate,
 });
+
+export const memberParams = z.object({
+  id: z.string().max(64),
+  userId: z.uuid(),
+});
+
+export const membersResponse = z.object({
+  members: z.array(
+    z.object({
+      userId: z.uuid(),
+      displayName: z.string(),
+      joinedAt: isoDate,
+    }),
+  ),
+});

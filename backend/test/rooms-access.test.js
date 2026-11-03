@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DENY, canManage, canView, canVote, isWithinWindow, roleOf } from '../src/rooms/access.js';
+import {
+  DENY,
+  canManage,
+  canRemoveMember,
+  canView,
+  canVote,
+  isWithinWindow,
+  roleOf,
+} from '../src/rooms/access.js';
 
 const OWNER = 'owner-id';
 const at = (iso) => new Date(iso);
@@ -93,4 +101,12 @@ test('canVote: time_window without window or unknown policy is refused, never op
   ]) {
     assert.deepEqual(canVote(r, null, during), { allowed: false, reason: DENY.MISCONFIGURED });
   }
+});
+
+test('canRemoveMember: the owner removes anyone, a member only themselves', () => {
+  assert.equal(canRemoveMember(room(), 'owner', OWNER, 'guest'), true);
+  assert.equal(canRemoveMember(room(), 'invited', 'guest', 'guest'), true);
+  assert.equal(canRemoveMember(room(), 'invited', 'guest', 'other-guest'), false);
+  assert.equal(canRemoveMember(room(), null, 'stranger', 'stranger'), false);
+  assert.equal(canRemoveMember(room(), null, 'stranger', 'guest'), false);
 });

@@ -65,3 +65,45 @@ export async function updateRoom(db, roomId, expectedVersion, room) {
   const [rows] = await db.query('SELECT * FROM rooms WHERE id = ?', [roomId]);
   return toRoom(rows[0]);
 }
+
+export async function deleteRoom(db, roomId, ownerId) {
+  const [result] = await db.query('DELETE FROM rooms WHERE id = ? AND owner_id = ?', [
+    roomId,
+    ownerId,
+  ]);
+  return result.affectedRows > 0;
+}
+
+export async function listMembers(db, roomId) {
+  const [rows] = await db.query(
+    `SELECT u.id, u.display_name, rm.joined_at
+       FROM room_members rm
+       JOIN users u ON u.id = rm.user_id
+      WHERE rm.room_id = ?
+      ORDER BY rm.joined_at, u.id`,
+    [roomId],
+  );
+  return rows.map((row) => ({
+    userId: row.id,
+    displayName: row.display_name,
+    joinedAt: row.joined_at,
+  }));
+}
+
+export async function addMember(db, roomId, userId) {
+  try {
+    await db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [roomId, userId]);
+    return true;
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') return false;
+    throw err;
+  }
+}
+
+export async function removeMember(db, roomId, userId) {
+  const [result] = await db.query('DELETE FROM room_members WHERE room_id = ? AND user_id = ?', [
+    roomId,
+    userId,
+  ]);
+  return result.affectedRows > 0;
+}

@@ -17,8 +17,9 @@ export const problemSchema = z
 
 // Thrown by routes for expected failures; the handler turns it into problem+json
 export class HttpProblem extends Error {
-  constructor(status, code, { title = defaultTitle(code), detail, headers } = {}) {
-    super(title);
+  constructor(status, code, { title = defaultTitle(code), detail, headers, cause } = {}) {
+    // cause: internal reason for the logs and CLI scripts, never sent to the client
+    super(title, { cause });
     this.status = status;
     this.code = code;
     this.title = title;

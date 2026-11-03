@@ -1,9 +1,11 @@
+import { z } from 'zod';
 import { HttpProblem } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { canManage } from '../rooms/access.js';
+import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
-import { insertRoom, updateRoom } from '../rooms/repo.js';
+import { deleteRoom, insertRoom, updateRoom } from '../rooms/repo.js';
 import {
   createRoomBody,
   ifMatchHeaders,
@@ -105,5 +107,32 @@ export default async function roomsRoutes(app) {
     );
     if (room == null) throw stale();
     return reply.header('etag', etag(room)).send(room);
+  });
+
+  const deleteSchema = {
+    tags: ['rooms'],
+    summary: 'Delete a room',
+    description:
+      'Owner only. Deletes the room with its queue, votes and members, then sends ' +
+      '`room.changed` with `change: "deleted"` to subscribers and removes them from the room. ' +
+      '404 if the room does not exist or is not visible to the caller, 403 if the caller can ' +
+      'see it but is not the owner.',
+    security: [{ bearerAuth: [] }],
+    params: roomParams,
+    response: { 204: z.null().describe('Room deleted') },
+  };
+
+  app.delete('/v1/rooms/:id', { schema: deleteSchema }, async (request, reply) => {
+    const visible = await loadVisibleRoom(app.db, request.params.id, request.userId);
+    if (visible == null) throw new HttpProblem(404, 'not_found');
+    if (!canManage(visible.room, visible.role)) throw new HttpProblem(403, 'forbidden');
+
+    const { room } = visible;
+    const deleted = await deleteRoom(app.db, room.id, room.ownerId);
+    if (!deleted) throw new HttpProblem(404, 'not_found');
+
+    emitRoomChanged(app.io, { ...room, version: room.version + 1 }, 'deleted');
+    closeRoomChannel(app.io, room.id);
+    return reply.code(204).send();
   });
 }
