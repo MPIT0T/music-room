@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
+import 'package:music_room/auth/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,12 +24,23 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1)); // API CALL
-    if (!mounted) return;
-    context.go('/discover');
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _signIn() async {
+    try {
+      if (!_formKey.currentState!.validate()) return;
+      setState(() => _isLoading = true);
+      await authService.signInWithPassword(_email.text.trim(), _password.text);
+      if (!mounted) return;
+      context.go('/discover');
+    } on AuthFailure catch (e) {
+      if (mounted) _showError(context, e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -66,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 AppPasswordInput(
                   label: 'Password',
                   controller: _password,
-                  onFieldSubmit: (_) => _submit(),
+                  onFieldSubmit: (_) => _signIn(),
                 ),
                 const SizedBox(height: Space.sm),
                 Align(
@@ -86,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 AppButton(
                   label: 'Log in',
                   isLoading: _isLoading,
-                  onPressed: _submit,
+                  onPressed: _signIn,
                 ),
                 const SizedBox(height: Space.sm),
                 Row(

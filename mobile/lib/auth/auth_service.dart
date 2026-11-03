@@ -51,6 +51,25 @@ class AuthService {
       );
     }
   }
+
+  Future<SignInResult> signInWithPassword(String email, String password) async {
+    final deviceId = await _store.deviceId();
+    try {
+      final res = await _api.postJson('/v1/sessions', {
+        'email': email,
+        'password': password,
+        'device': currentDevice(),
+        'deviceId': ?deviceId,
+      });
+      await _store.save(res.body);
+      return res.status == 201 ? SignInResult.created : SignInResult.existing;
+    } on ApiException catch (e) {
+      throw AuthFailure(
+        e.code,
+        _messages[e.code] ?? 'Login failed. Please try again.',
+      );
+    }
+  }
 }
 
 /// The `device` object of the contract. kIsWeb first: dart:io Platform does not exist on web.
