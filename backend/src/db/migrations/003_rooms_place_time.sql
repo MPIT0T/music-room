@@ -1,4 +1,3 @@
--- VOTE-6 (subject V.2.1): with this licence, only people at a given place during a given time vote.
 -- time_window becomes place_time: the place (latitude, longitude, radius_m) is required with it.
 -- Safe to re-run: MariaDB commits each ALTER on its own, so a failed run can leave part of it applied.
 
