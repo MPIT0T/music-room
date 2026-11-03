@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { rateLimit } from '../security/rate-limit.js';
@@ -35,7 +35,7 @@ export default async function friendsRoutes(app) {
       '`friends.changed`.',
     security: [{ bearerAuth: [] }],
     params: friendParams,
-    response: { 200: friendshipStatus },
+    response: { 200: friendshipStatus, ...problems(400, 401, 404, 429) },
   };
   app.put(
     '/v1/friends/:userId',
@@ -60,7 +60,10 @@ export default async function friendsRoutes(app) {
       'receive `friends.changed` with `status: "none"`.',
     security: [{ bearerAuth: [] }],
     params: friendParams,
-    response: { 204: z.null().describe('No friendship or request between the two users') },
+    response: {
+      204: z.null().describe('No friendship or request between the two users'),
+      ...problems(401),
+    },
   };
   app.delete('/v1/friends/:userId', { schema: deleteSchema }, async (request, reply) => {
     const { userId: otherId } = request.params;
@@ -78,7 +81,7 @@ export default async function friendsRoutes(app) {
     summary: 'List my friends',
     description: 'Accepted friendships only, sorted by display name.',
     security: [{ bearerAuth: [] }],
-    response: { 200: friendsResponse },
+    response: { 200: friendsResponse, ...problems(401) },
   };
   app.get('/v1/friends', { schema: listSchema }, async (request) => ({
     friends: await listFriends(app.db, request.userId),
@@ -89,7 +92,7 @@ export default async function friendsRoutes(app) {
     summary: 'List my pending friend requests',
     description: 'Newest first, split between requests I received and requests I sent.',
     security: [{ bearerAuth: [] }],
-    response: { 200: requestsResponse },
+    response: { 200: requestsResponse, ...problems(401) },
   };
   app.get('/v1/friends/requests', { schema: requestSchema }, async (request) =>
     listRequests(app.db, request.userId),
@@ -104,7 +107,7 @@ export default async function friendsRoutes(app) {
       'emails, so it cannot tell who has an account. Rate limited per user.',
     security: [{ bearerAuth: [] }],
     querystring: searchQuery,
-    response: { 200: searchResponse },
+    response: { 200: searchResponse, ...problems(400, 401, 429) },
   };
   app.get(
     '/v1/users/search',
