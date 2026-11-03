@@ -115,3 +115,22 @@ export async function clearRefresh(db, { userId, deviceId }) {
     [deviceId, userId],
   );
 }
+
+// Password reset (every device) and password change (every device but the current one).
+// Returns the revoked device ids, so their sockets can be closed after the commit.
+export async function revokeUserSessions(conn, userId, { exceptDeviceId = null } = {}) {
+  const [rows] = await conn.query(
+    'SELECT id FROM devices WHERE user_id = ? AND (? IS NULL OR id <> ?) FOR UPDATE',
+    [userId, exceptDeviceId, exceptDeviceId],
+  );
+  const ids = rows.map((row) => row.id);
+  if (ids.length > 0) {
+    await conn.query(
+      `UPDATE devices
+       SET refresh_hash = NULL, previous_refresh_hash = NULL, refresh_expires_at = NULL, rotated_at = NULL
+       WHERE id IN (?)`,
+      [ids],
+    );
+  }
+  return ids;
+}

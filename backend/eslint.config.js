@@ -31,4 +31,9 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Served to the browser by the email link pages
+    files: ['src/pages/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
 ]);

@@ -18,6 +18,9 @@ export function safeText({ min = 0, max }) {
     });
 }
 
+// Contract "Règles de mot de passe": length only, no composition rule (NIST SP 800-63B)
+export const passwordField = z.string().min(8).max(128);
+
 // Normalized before validation, so lookups and rate-limit keys never depend on case or spaces
 export const emailField = z.string().trim().toLowerCase().max(255).pipe(z.email());
 

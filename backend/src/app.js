@@ -18,6 +18,8 @@ import roomMembersRoutes from './routes/room-members.js';
 import tracksRoutes from './routes/tracks.js';
 import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
+import passwordsRoutes from './routes/passwords.js';
+import emailPagesRoutes from './routes/email-pages.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { limits as defaultLimits } from './security/limits.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -122,6 +124,8 @@ export async function buildApp({
   await app.register(tracksRoutes);
   if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);
+  await app.register(passwordsRoutes);
+  await app.register(emailPagesRoutes);
 
   return app;
 }
