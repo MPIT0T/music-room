@@ -3,7 +3,7 @@ import { withTransaction } from '../db/tx.js';
 import { HttpProblem, problemSchema } from '../errors.js';
 import { clearRefresh, openSession, rotateSession } from '../auth/sessions.js';
 import { requireAuth } from '../auth/guards.js';
-import { isGoogleUnavailable } from '../auth/google.js';
+import { verifyGoogleIdToken } from '../auth/google.js';
 import { signInWithGoogle } from '../users/oauth.js';
 import { disconnectDevice } from '../auth/sockets.js';
 import { findUserByEmail, findUserById, toPublicUser } from '../users/repo.js';
@@ -123,20 +123,7 @@ export default async function sessionsRoutes(app) {
   app.post('/v1/sessions/oauth', { schema: oauthSchema }, async (request, reply) => {
     const { provider, idToken, device, deviceId } = request.body;
     if (provider !== 'google') throw new HttpProblem(400, 'unsupported_provider');
-    if (!app.googleVerifier.configured) throw new HttpProblem(503, 'oauth_unavailable');
-
-    let claims;
-    try {
-      claims = await app.googleVerifier.verify(idToken);
-    } catch (err) {
-      // Only the reason is logged: the ID token is a bearer credential for its lifetime
-      if (isGoogleUnavailable(err)) {
-        request.log.warn({ reason: err.code ?? err.name }, 'google keys unavailable');
-        throw new HttpProblem(503, 'oauth_unavailable');
-      }
-      request.log.info({ reason: err.code, claim: err.claim }, 'google id token rejected');
-      throw new HttpProblem(401, 'invalid_oauth_token');
-    }
+    const claims = await verifyGoogleIdToken(app, request, idToken);
 
     const result = await signInOnce(claims, { device, deviceId });
     if (result.outcome === 'email_not_verified') {

@@ -1,5 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { cleanText } from '../validation.js';
+import { HttpProblem } from '../errors.js';
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 // Fetched on first use, then cached and refreshed by jose when Google rotates its keys
@@ -35,4 +36,20 @@ export function createGoogleVerifier({ audiences, jwks = createRemoteJWKSet(GOOG
 // Our JWKS fetch failed (network, Google down): not the client's fault, the token was not judged
 export function isGoogleUnavailable(err) {
   return !err.code || err.code === 'ERR_JWKS_TIMEOUT' || err.code === 'ERR_JOSE_GENERIC';
+}
+
+// Shared by sign-in and account linking: one place for the checks, the error codes and the logs.
+// Only the reason is ever logged: the ID token is a bearer credential for its lifetime.
+export async function verifyGoogleIdToken(app, request, idToken) {
+  if (!app.googleVerifier.configured) throw new HttpProblem(503, 'oauth_unavailable');
+  try {
+    return await app.googleVerifier.verify(idToken);
+  } catch (err) {
+    if (isGoogleUnavailable(err)) {
+      request.log.warn({ reason: err.code ?? err.name }, 'google keys unavailable');
+      throw new HttpProblem(503, 'oauth_unavailable');
+    }
+    request.log.info({ reason: err.code, claim: err.claim }, 'google id token rejected');
+    throw new HttpProblem(401, 'invalid_oauth_token');
+  }
 }

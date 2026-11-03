@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Music Room · bac à sable</title>
+    <link rel="icon" href="data:," />
     <style>
       :root {
         --bg: #f6f5f1;
@@ -12,6 +13,7 @@
         --muted: #6b6960;
         --line: #e2dfd6;
         --accent: #3c5bd6;
+        --accent-soft: #e8ecfb;
         --ok: #1f7a4d;
         --warn: #9a5b00;
         --err: #b3261e;
@@ -26,6 +28,7 @@
           --muted: #9c9a92;
           --line: #33322e;
           --accent: #8ea2ff;
+          --accent-soft: #262b45;
           --ok: #5fcf97;
           --warn: #f0b14f;
           --err: #ff8a80;
@@ -44,32 +47,57 @@
           14px/1.5 system-ui,
           sans-serif;
       }
+      [hidden] {
+        display: none !important;
+      }
+
+      /* ---------- layout ---------- */
       header {
-        padding: 14px 20px;
-        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 2;
         display: flex;
-        gap: 16px;
-        align-items: baseline;
+        gap: 12px;
+        align-items: center;
         flex-wrap: wrap;
+        padding: 10px 20px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
       }
       header h1 {
-        font-size: 16px;
-        margin: 0;
+        font-size: 15px;
+        margin: 0 8px 0 0;
       }
-      header span {
-        color: var(--muted);
+      header .spacer {
+        flex: 1;
       }
       main {
         display: grid;
-        grid-template-columns: minmax(320px, 420px) 1fr;
+        grid-template-columns: 290px minmax(0, 1fr) minmax(0, 0.9fr);
         gap: 16px;
         padding: 16px 20px;
         align-items: start;
       }
-      @media (max-width: 860px) {
+      @media (max-width: 1250px) {
+        main {
+          grid-template-columns: 290px minmax(0, 1fr);
+        }
+        .col-log {
+          grid-column: 1 / -1;
+        }
+      }
+      @media (max-width: 760px) {
         main {
           grid-template-columns: 1fr;
+          padding: 12px;
         }
+      }
+      .col-side,
+      .col-main {
+        min-width: 0;
+      }
+      .col-side section {
+        overflow: hidden;
       }
       section {
         background: var(--panel);
@@ -79,12 +107,34 @@
         margin-bottom: 16px;
       }
       h2 {
-        font-size: 13px;
+        font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         color: var(--muted);
         margin: 0 0 10px;
       }
+      h3 {
+        font-size: 13px;
+        margin: 16px 0 6px;
+      }
+      h2 code,
+      h3 code {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+      }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .section-head h2 {
+        margin: 0;
+      }
+
+      /* ---------- controls ---------- */
       label {
         display: block;
         font-size: 12px;
@@ -107,20 +157,41 @@
         border-radius: 6px;
         background: var(--bg);
       }
+      input[type='checkbox'] {
+        width: auto;
+      }
       button {
         padding: 6px 12px;
         border: 1px solid var(--line);
         border-radius: 6px;
         background: var(--bg);
         cursor: pointer;
+        white-space: nowrap;
+      }
+      button:hover {
+        border-color: var(--muted);
       }
       button.primary {
         background: var(--accent);
         border-color: var(--accent);
         color: #fff;
       }
+      button.danger {
+        background: var(--err);
+        border-color: var(--err);
+        color: #fff;
+      }
+      button.small {
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      button.on {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.45;
         cursor: default;
       }
       .row {
@@ -132,7 +203,8 @@
         flex: 1;
         min-width: 0;
       }
-      .row > button {
+      .row > button,
+      .row > .fit {
         flex: 0 0 auto;
       }
       .actions {
@@ -140,43 +212,68 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-      }
-      .list {
-        list-style: none;
-        margin: 10px 0 0;
-        padding: 0;
-      }
-      .list li {
-        display: flex;
-        gap: 8px;
         align-items: center;
-        padding: 6px 8px;
-        border-radius: 6px;
+      }
+      .check {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin: 8px 0 0;
+        color: var(--ink);
+        font-size: 13px;
+      }
+      fieldset {
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 4px 10px 10px;
+        margin: 10px 0 0;
+      }
+      legend {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 0 4px;
+      }
+      details.more {
+        margin-top: 14px;
+        border-top: 1px solid var(--line);
+        padding-top: 8px;
+      }
+      details.more > summary {
         cursor: pointer;
-      }
-      .list li:hover {
-        background: var(--bg);
-      }
-      .list li.active {
-        outline: 2px solid var(--accent);
-        outline-offset: -2px;
-      }
-      h2 code {
-        text-transform: none;
-        letter-spacing: 0;
-        font-weight: 400;
-      }
-      .list small,
-      .hint {
         color: var(--muted);
         font-size: 12px;
       }
+
+      /* ---------- text ---------- */
+      .hint,
+      small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .hint {
+        margin: 6px 0 0;
+      }
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        padding: 10px 0;
+      }
       .tag {
+        display: inline-block;
         font-size: 11px;
-        padding: 1px 6px;
+        padding: 0 6px;
         border-radius: 999px;
         border: 1px solid var(--line);
         color: var(--muted);
+        white-space: nowrap;
+      }
+      .tag.accent {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .tag.warn {
+        border-color: var(--warn);
+        color: var(--warn);
       }
       code,
       pre {
@@ -190,20 +287,194 @@
         background: var(--code);
         border-radius: 6px;
         padding: 8px;
-        margin: 6px 0 0;
+        margin: 4px 0 0;
         white-space: pre-wrap;
         word-break: break-word;
-        max-height: 360px;
+        max-height: 320px;
         overflow: auto;
       }
-      .log-head {
+
+      /* ---------- lists ---------- */
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .list li {
         display: flex;
-        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 6px;
+      }
+      .list li.pick {
+        cursor: pointer;
+      }
+      .list li.pick:hover {
+        background: var(--bg);
+      }
+      .list li.active {
+        background: var(--accent-soft);
+      }
+      .list .grow {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .list .grow > * {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .list img,
+      .cover {
+        width: 36px;
+        height: 36px;
+        border-radius: 4px;
+        object-fit: cover;
+        flex: none;
+        background: var(--code);
+      }
+      .scroll {
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--line);
+        display: inline-block;
+        flex: none;
+      }
+      .dot.on {
+        background: var(--ok);
+      }
+      .rank {
+        width: 18px;
+        text-align: right;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .votes {
+        min-width: 44px;
+        text-align: center;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---------- header: who am I ---------- */
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
         align-items: center;
       }
+      .chip {
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 13px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .chip.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      /* ---------- room ---------- */
+      .room-head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+      }
+      .room-head h2 {
+        font-size: 18px;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--ink);
+        margin: 0 0 4px;
+      }
+      .room-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        margin-bottom: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        flex-wrap: wrap;
+      }
+      .tabs button {
+        flex: 1 1 auto;
+        padding: 6px 8px;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .tabs button[aria-selected='true'] {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      /* ---------- player ---------- */
+      .now {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .now .cover {
+        width: 64px;
+        height: 64px;
+        border-radius: 8px;
+      }
+      .now .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .now strong {
+        display: block;
+        font-size: 15px;
+      }
+      .bar {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--line);
+        margin-top: 8px;
+        overflow: hidden;
+      }
+      .bar > div {
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+      }
+      audio {
+        width: 100%;
+        margin-top: 10px;
+      }
+      .nearby {
+        border: 2px solid var(--accent);
+        border-radius: 10px;
+        padding: 12px;
+        margin-top: 12px;
+        background: var(--accent-soft);
+      }
+
+      /* ---------- log ---------- */
       .entry {
         border-top: 1px solid var(--line);
-        padding: 8px 0;
+        padding: 6px 0;
       }
       .entry summary {
         cursor: pointer;
@@ -214,6 +485,11 @@
       }
       .entry summary::-webkit-details-marker {
         display: none;
+      }
+      .entry summary code {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .status {
         font-weight: 600;
@@ -238,382 +514,424 @@
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
-      @media (max-width: 1100px) {
+      @media (max-width: 1500px) {
         .grid2 {
           grid-template-columns: 1fr;
         }
       }
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--muted);
-        display: inline-block;
-      }
-      .dot.on {
-        background: var(--ok);
-      }
-      [hidden] {
-        display: none !important;
-      }
-      .left {
-        min-width: 0;
-      }
-      .tabs {
-        position: sticky;
-        top: 8px;
-        z-index: 1;
-        display: flex;
-        gap: 4px;
-        padding: 4px;
-        margin-bottom: 16px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        /* Wraps instead of scrolling: a tab hidden off-screen is a tab nobody finds */
-        flex-wrap: wrap;
-      }
-      .tabs button {
-        flex: 1 0 auto;
-        padding: 6px 8px;
-        border: 0;
-        background: transparent;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-      }
-      .tabs button:hover {
-        color: var(--ink);
-      }
-      .tabs button[aria-selected='true'] {
-        background: var(--bg);
-        box-shadow: inset 0 0 0 1px var(--line);
-        color: var(--tab-color, var(--ink));
-      }
-      .tabs [data-tab='post'] {
-        --tab-color: var(--accent);
-      }
-      .tabs [data-tab='get'] {
-        --tab-color: var(--ok);
-      }
-      .tabs [data-tab='patch'] {
-        --tab-color: var(--warn);
-      }
-      .tabs [data-tab='members'] {
-        --tab-color: var(--accent);
-      }
-      .tabs [data-tab='tracks'] {
-        --tab-color: var(--ok);
-      }
-      .tabs [data-tab='delete'] {
-        --tab-color: var(--err);
-      }
-      button.danger {
-        background: var(--err);
-        border-color: var(--err);
-        color: #fff;
-      }
-      #rooms {
-        max-height: 220px;
+      #log {
+        max-height: calc(100vh - 140px);
         overflow-y: auto;
-      }
-      #tracks {
-        max-height: 320px;
-        overflow-y: auto;
-      }
-      #tracks img {
-        width: 32px;
-        height: 32px;
-        border-radius: 4px;
-        object-fit: cover;
-        flex: none;
-        background: var(--code);
-      }
-      #tracks .track-text {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-      }
-      #tracks .track-text strong,
-      #tracks .track-text small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      #tracks button {
-        padding: 2px 8px;
-        flex: none;
-      }
-      #player {
-        width: 100%;
-        margin-top: 10px;
       }
     </style>
   </head>
   <body>
     <header>
       <h1>Music Room · bac à sable</h1>
-      <span>Dev uniquement. Chaque échange avec l'API apparaît à droite.</span>
+      <small>Agir en tant que</small>
+      <div class="chips" id="user-chips"></div>
+      <div class="spacer"></div>
+      <small>Dev uniquement</small>
+      <a href="/docs" target="_blank" rel="noopener">Swagger ↗</a>
     </header>
+
     <main>
-      <div class="left">
+      <!-- ================= users and rooms ================= -->
+      <aside class="col-side">
         <section>
-          <h2>Utilisateurs de test</h2>
+          <div class="section-head">
+            <h2>Utilisateurs</h2>
+          </div>
           <form id="user-form" class="row">
             <div>
-              <label for="user-name">Nom affiché</label>
-              <input id="user-name" maxlength="50" placeholder="Alice" required />
+              <input id="user-name" maxlength="50" autocomplete="off" aria-label="Nom" />
             </div>
-            <button class="primary" type="submit">Créer</button>
+            <button class="primary" type="submit">+ Créer</button>
           </form>
-          <ul id="users" class="list"></ul>
+          <ul id="users" class="list" style="margin-top: 8px"></ul>
           <p class="hint" id="users-hint">
-            Crée au moins deux utilisateurs pour tester les rooms privées. Clique sur un nom pour
-            agir en son nom.
+            Crée 2 ou 3 utilisateurs (sans mot de passe, dev seulement), puis clique sur un nom en
+            haut pour agir en son nom. 📋 copie son token pour Swagger.
           </p>
         </section>
 
         <section>
-          <h2>Room ciblée</h2>
-          <form id="get-form">
-            <label for="get-id"
-              >Id utilisé par GET, PATCH et DELETE (recopié dans Socket au clic)</label
-            >
-            <input id="get-id" placeholder="uuid" autocomplete="off" />
+          <div class="section-head">
+            <h2>Rooms visibles</h2>
+            <span class="row fit">
+              <button type="button" class="small" id="rooms-refresh" title="GET /v1/rooms">
+                ↻
+              </button>
+              <button type="button" class="small primary" id="create-toggle">+ Nouvelle</button>
+            </span>
+          </div>
+
+          <form id="create-form" hidden>
+            <label for="c-name">Nom</label>
+            <input id="c-name" maxlength="100" placeholder="Soirée du samedi" required />
+            <label for="c-desc">Description</label>
+            <input id="c-desc" maxlength="1000" placeholder="facultatif" />
+            <div class="row">
+              <div>
+                <label for="c-visibility">Qui la trouve</label>
+                <select id="c-visibility">
+                  <option value="public">public</option>
+                  <option value="private">private (invités)</option>
+                </select>
+              </div>
+              <div>
+                <label for="c-policy">Qui vote</label>
+                <select id="c-policy">
+                  <option value="everyone">everyone</option>
+                  <option value="invited">invited</option>
+                  <option value="place_time">place_time</option>
+                </select>
+              </div>
+            </div>
+            <fieldset id="c-place-time" hidden>
+              <legend>Lieu et horaire (place_time)</legend>
+              <label for="c-start">Début</label>
+              <input id="c-start" type="datetime-local" />
+              <label for="c-end">Fin</label>
+              <input id="c-end" type="datetime-local" />
+              <div class="row">
+                <div>
+                  <label for="c-lat">Latitude</label>
+                  <input id="c-lat" type="number" step="any" placeholder="45.7578" />
+                </div>
+                <div>
+                  <label for="c-lng">Longitude</label>
+                  <input id="c-lng" type="number" step="any" placeholder="4.832" />
+                </div>
+              </div>
+              <label for="c-radius">Rayon (m)</label>
+              <input id="c-radius" type="number" min="10" value="200" />
+              <div class="actions">
+                <button type="button" id="c-here">📍 Ma position</button>
+                <button type="button" id="c-lyon" title="Place Bellecour">Lyon</button>
+              </div>
+            </fieldset>
+            <label for="c-beacon">Beacon minor (facultatif)</label>
+            <input id="c-beacon" type="number" min="0" max="65535" placeholder="0 à 65535" />
+            <div class="actions">
+              <button class="primary" type="submit">Créer la room</button>
+              <button type="button" id="create-cancel">Annuler</button>
+            </div>
+            <details class="more">
+              <summary>Corps JSON brut (tester les 400)</summary>
+              <textarea id="c-raw" rows="4">{ "name": "" }</textarea>
+              <div class="actions">
+                <button type="button" id="c-raw-send">POST /v1/rooms tel quel</button>
+              </div>
+            </details>
           </form>
-          <ul id="rooms" class="list"></ul>
-          <p class="hint">Rooms vues depuis cette page. Clique pour la cibler et la relire.</p>
+
+          <ul id="rooms" class="list scroll"></ul>
+          <p class="hint" id="rooms-hint">
+            Ce que <code>GET /v1/rooms</code> renvoie à l'utilisateur actif : change d'utilisateur
+            pour voir les rooms privées apparaître ou disparaître.
+          </p>
+        </section>
+      </aside>
+
+      <!-- ================= current room ================= -->
+      <div class="col-main">
+        <section id="room-card">
+          <div id="room-empty" class="empty">
+            Crée ou choisis une room à gauche. Tout ce qui suit s'applique à elle.
+          </div>
+          <div id="room-view" hidden>
+            <div class="room-head">
+              <div>
+                <h2 id="r-name"></h2>
+                <div class="room-meta" id="r-meta"></div>
+                <p class="hint" id="r-desc"></p>
+              </div>
+              <button type="button" class="small" id="r-reload" title="GET /v1/rooms/:id">↻</button>
+            </div>
+            <p class="hint" id="r-hidden" hidden></p>
+          </div>
         </section>
 
         <nav class="tabs" role="tablist" aria-label="Fonctionnalité">
-          <button type="button" role="tab" data-tab="post">POST</button>
-          <button type="button" role="tab" data-tab="get">GET</button>
-          <button type="button" role="tab" data-tab="patch">PATCH</button>
-          <button type="button" role="tab" data-tab="delete">DELETE</button>
-          <button type="button" role="tab" data-tab="members">MEMBRES</button>
-          <button type="button" role="tab" data-tab="tracks">MORCEAUX</button>
-          <button type="button" role="tab" data-tab="socket">SOCKET</button>
+          <button type="button" role="tab" data-tab="queue">🎵 File &amp; lecture</button>
+          <button type="button" role="tab" data-tab="settings">⚙ Réglages</button>
+          <button type="button" role="tab" data-tab="members">👥 Membres</button>
+          <button type="button" role="tab" data-tab="discover">📡 Découverte</button>
+          <button type="button" role="tab" data-tab="realtime">⚡ Temps réel</button>
         </nav>
 
-        <section data-panel="post" role="tabpanel">
-          <h2>Créer une room · <code>POST /v1/rooms</code></h2>
-          <form id="room-form">
-            <label for="room-name">Nom</label>
-            <input id="room-name" maxlength="100" placeholder="Soirée du samedi" />
-            <label for="room-desc">Description</label>
-            <input id="room-desc" maxlength="1000" placeholder="facultatif" />
-            <div class="row">
-              <div>
-                <label for="room-visibility">Visibilité</label>
-                <select id="room-visibility">
-                  <option value="">(défaut : public)</option>
-                  <option>public</option>
-                  <option>private</option>
-                </select>
-              </div>
-              <div>
-                <label for="room-policy">Qui vote</label>
-                <select id="room-policy">
-                  <option value="">(défaut : everyone)</option>
-                  <option>everyone</option>
-                  <option>invited</option>
-                  <option>place_time</option>
-                </select>
+        <!-- ---------- queue & playback ---------- -->
+        <div data-panel="queue" role="tabpanel">
+          <section>
+            <div class="section-head">
+              <h2>En cours · <code>/playback</code></h2>
+              <small id="p-role"></small>
+            </div>
+            <div class="now">
+              <img class="cover" id="p-cover" alt="" />
+              <div class="grow">
+                <strong id="p-title">Rien ne joue</strong>
+                <small id="p-sub">Le propriétaire lance la file avec « Suivant ».</small>
+                <div class="bar"><div id="p-bar"></div></div>
               </div>
             </div>
-            <div class="row">
-              <div>
-                <label for="room-start">Début de fenêtre</label>
-                <input id="room-start" type="datetime-local" />
-              </div>
-              <div>
-                <label for="room-end">Fin de fenêtre</label>
-                <input id="room-end" type="datetime-local" />
-              </div>
+            <div class="actions" id="p-controls">
+              <button type="button" class="primary" id="p-skip">⏭ Suivant</button>
+              <button type="button" id="p-play">▶ Play</button>
+              <button type="button" id="p-pause">⏸ Pause</button>
+              <span class="row fit">
+                <input id="p-seek" type="number" min="0" placeholder="sec" style="width: 70px" />
+                <button type="button" id="p-seek-btn">Aller</button>
+              </span>
             </div>
-            <div class="row">
-              <div>
-                <label for="room-lat">Latitude</label>
-                <input id="room-lat" type="number" step="any" placeholder="45.7578" />
-              </div>
-              <div>
-                <label for="room-lng">Longitude</label>
-                <input id="room-lng" type="number" step="any" placeholder="4.832" />
-              </div>
-              <div>
-                <label for="room-radius">Rayon (m)</label>
-                <input id="room-radius" type="number" min="10" placeholder="200" />
-              </div>
-              <div>
-                <label for="room-beacon">Beacon minor</label>
-                <input id="room-beacon" type="number" min="0" max="65535" placeholder="0 à 65535" />
-              </div>
+            <label class="check">
+              <input type="checkbox" id="p-local" />
+              Ce navigateur est le téléphone qui joue (propriétaire) : il lit le son, envoie
+              play/pause/position et passe au suivant en fin de morceau.
+            </label>
+            <audio id="p-audio" controls preload="none" hidden></audio>
+          </section>
+
+          <section>
+            <div class="section-head">
+              <h2>File de vote · <code>/tracks</code></h2>
+              <button type="button" class="small" id="q-reload" title="GET /v1/rooms/:id/tracks">
+                ↻
+              </button>
             </div>
-            <div class="actions">
-              <button class="primary" type="submit">POST /v1/rooms</button>
-              <button type="button" id="room-raw-toggle">Corps JSON brut</button>
+            <ul id="queue" class="list"></ul>
+            <div class="row" style="margin-top: 10px">
+              <div>
+                <label for="q-location">Position envoyée (<code>X-Location</code>)</label>
+                <input id="q-location" placeholder="aucune" autocomplete="off" />
+              </div>
+              <button type="button" id="q-loc-in" title="Centre du lieu de la room">
+                Dans le lieu
+              </button>
+              <button type="button" id="q-loc-out" title="~1 km au nord du lieu">Loin</button>
+              <button type="button" id="q-loc-me">📍</button>
             </div>
-            <div id="room-raw" hidden>
-              <label for="room-json">Envoyé tel quel (pour tester les erreurs 400)</label>
-              <textarea id="room-json" rows="5">{ "name": "" }</textarea>
+            <p class="hint">
+              Envoyée avec les propositions et les votes. Utile seulement dans une room
+              <code>place_time</code> : vide → 403 location_required, loin → 403 outside_place.
+            </p>
+          </section>
+
+          <section>
+            <h2>Proposer un morceau · <code>GET /v1/tracks</code></h2>
+            <form id="s-form" class="row">
+              <div>
+                <input
+                  id="s-q"
+                  maxlength="100"
+                  placeholder="lofi, jazz, rock…"
+                  autocomplete="off"
+                />
+              </div>
+              <button class="primary" type="submit">Chercher</button>
+            </form>
+            <ul id="s-results" class="list scroll" style="margin-top: 8px"></ul>
+            <audio id="s-preview" controls preload="none" hidden></audio>
+            <details class="more">
+              <summary>Tests avancés</summary>
               <div class="actions">
-                <button type="button" id="room-raw-send">Envoyer le JSON brut</button>
+                <button type="button" id="s-burst">Limite de débit : 31 recherches</button>
               </div>
+              <p class="hint">
+                Le 429 ne touche que l'utilisateur actif : change d'utilisateur, il peut chercher.
+              </p>
+            </details>
+          </section>
+        </div>
+
+        <!-- ---------- settings ---------- -->
+        <div data-panel="settings" role="tabpanel">
+          <section>
+            <h2>Modifier · <code>PATCH /v1/rooms/:id</code></h2>
+            <form id="e-form">
+              <label for="e-name">Nom</label>
+              <input id="e-name" maxlength="100" />
+              <label for="e-desc">Description</label>
+              <input id="e-desc" maxlength="1000" placeholder="vide = aucune" />
+              <div class="row">
+                <div>
+                  <label for="e-visibility">Qui la trouve</label>
+                  <select id="e-visibility">
+                    <option value="public">public</option>
+                    <option value="private">private</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="e-policy">Qui vote</label>
+                  <select id="e-policy">
+                    <option value="everyone">everyone</option>
+                    <option value="invited">invited</option>
+                    <option value="place_time">place_time</option>
+                  </select>
+                </div>
+              </div>
+              <fieldset>
+                <legend>Lieu et horaire</legend>
+                <div class="row">
+                  <div>
+                    <label for="e-start">Début</label>
+                    <input id="e-start" type="datetime-local" />
+                  </div>
+                  <div>
+                    <label for="e-end">Fin</label>
+                    <input id="e-end" type="datetime-local" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div>
+                    <label for="e-lat">Latitude</label>
+                    <input id="e-lat" type="number" step="any" />
+                  </div>
+                  <div>
+                    <label for="e-lng">Longitude</label>
+                    <input id="e-lng" type="number" step="any" />
+                  </div>
+                  <div>
+                    <label for="e-radius">Rayon (m)</label>
+                    <input id="e-radius" type="number" min="10" />
+                  </div>
+                </div>
+                <p class="hint">Vide les champs pour retirer le lieu ou l'horaire.</p>
+              </fieldset>
+              <div class="row">
+                <div>
+                  <label for="e-beacon">Beacon minor</label>
+                  <input id="e-beacon" type="number" min="0" max="65535" placeholder="aucun" />
+                </div>
+                <div>
+                  <label for="e-etag">If-Match</label>
+                  <input id="e-etag" />
+                </div>
+              </div>
+              <p class="hint">
+                Seuls les champs changés sont envoyés. If-Match vide → 428, ancienne version → 412.
+              </p>
+              <div class="actions">
+                <button class="primary" type="submit">Enregistrer</button>
+                <button type="button" id="e-reset">Annuler les changements</button>
+              </div>
+            </form>
+          </section>
+
+          <section>
+            <h2>Zone dangereuse</h2>
+            <div class="actions">
+              <button type="button" class="danger" id="d-delete">Supprimer la room</button>
             </div>
-          </form>
-        </section>
+            <p class="hint">
+              Propriétaire seulement (403 sinon, 404 si invisible). Les abonnés reçoivent
+              <code>room.changed</code> « deleted ».
+            </p>
+            <details class="more">
+              <summary>Requêtes sans token, JSON brut</summary>
+              <div class="actions">
+                <button type="button" id="d-get-anon">GET sans token</button>
+                <button type="button" id="d-delete-anon">DELETE sans token</button>
+              </div>
+              <label for="e-raw">PATCH avec ce corps tel quel</label>
+              <textarea id="e-raw" rows="3">{ "name": "" }</textarea>
+              <div class="actions">
+                <button type="button" id="e-raw-send">PATCH brut</button>
+              </div>
+            </details>
+          </section>
+        </div>
 
-        <section data-panel="get" role="tabpanel">
-          <h2>Lire une room · <code>GET /v1/rooms/:id</code></h2>
-          <p class="hint">
-            Lit la room ciblée avec l'utilisateur actif. Une room privée renvoie 404 à qui n'est ni
-            propriétaire ni invité.
-          </p>
-          <div class="actions">
-            <button class="primary" type="button" id="get-btn">GET</button>
-            <button type="button" id="no-token">GET sans token</button>
-          </div>
-
-          <h2>Trouver des rooms · <code>GET /v1/rooms</code></h2>
-          <p class="hint">
-            Sans beacon : les rooms publiques et les privées de l'utilisateur actif (propriétaire ou
-            invité). Avec un minor : ce que verrait un téléphone qui capte ce beacon, c'est-à-dire
-            la room publique qui le porte, ou une liste vide (jamais une room privée).
-          </p>
-          <div class="row">
-            <div>
-              <label for="find-beacon">Beacon minor</label>
-              <input id="find-beacon" type="number" min="0" max="65535" placeholder="42" />
+        <!-- ---------- members ---------- -->
+        <div data-panel="members" role="tabpanel">
+          <section>
+            <div class="section-head">
+              <h2>Membres · <code>/members</code></h2>
+              <button type="button" class="small" id="m-reload">↻</button>
             </div>
-            <button class="primary" type="button" id="find-beacon-btn">Capter le beacon</button>
-            <button type="button" id="list-btn">Lister mes rooms</button>
-          </div>
-        </section>
-
-        <section data-panel="patch" role="tabpanel">
-          <h2>Modifier une room · <code>PATCH /v1/rooms/:id</code></h2>
-          <p class="hint">
-            Envoie seulement les champs à changer. L'If-Match est rempli avec le dernier ETag reçu :
-            vide-le pour voir le 428, mets une vieille version pour voir le 412. Beacon :
-            <code>{ "beaconMinor": 42 }</code> l'attribue (409 beacon_taken s'il est déjà pris),
-            <code>null</code> le retire.
-          </p>
-          <form id="patch-form">
-            <label for="patch-json">Corps JSON</label>
-            <textarea id="patch-json" rows="4">{ "name": "Nouveau nom" }</textarea>
-            <div class="row">
+            <ul id="members" class="list"></ul>
+            <div class="row" style="margin-top: 10px">
               <div>
-                <label for="patch-etag">If-Match</label>
-                <input id="patch-etag" placeholder='"0"' />
+                <label for="m-user">Inviter</label>
+                <select id="m-user"></select>
               </div>
-              <button class="primary" type="submit">PATCH</button>
+              <button type="button" class="primary" id="m-invite">Inviter</button>
             </div>
-          </form>
-        </section>
+            <label for="m-raw">ou un id quelconque (prioritaire s'il est rempli)</label>
+            <input id="m-raw" placeholder="uuid" autocomplete="off" />
+            <div class="actions">
+              <button type="button" id="m-leave">Quitter la room (moi)</button>
+            </div>
+            <p class="hint">
+              Seul le propriétaire invite ; il retire n'importe qui, un membre peut se retirer
+              lui-même. PUT et DELETE sont idempotents (204). Un invité voit ensuite la room privée.
+            </p>
+          </section>
+        </div>
 
-        <section data-panel="delete" role="tabpanel">
-          <h2>Supprimer une room · <code>DELETE /v1/rooms/:id</code></h2>
-          <p class="hint">
-            Propriétaire seulement : 204 pour lui, 403 pour qui voit la room sans en être
-            propriétaire, 404 si elle est privée ou n'existe plus. Abonne d'abord un autre
-            utilisateur à la room (onglet Socket) pour le voir recevoir
-            <code>room.changed</code> avec <code>change: "deleted"</code>.
-          </p>
-          <div class="actions">
-            <button class="danger" type="button" id="delete-btn">DELETE</button>
-            <button type="button" id="delete-no-token">DELETE sans token</button>
-          </div>
-        </section>
+        <!-- ---------- discover ---------- -->
+        <div data-panel="discover" role="tabpanel">
+          <section>
+            <h2>Beacon à proximité · <code>GET /v1/rooms?beacon=</code></h2>
+            <form id="b-form" class="row">
+              <div>
+                <label for="b-minor">Minor capté par le téléphone</label>
+                <input id="b-minor" type="number" min="0" max="65535" placeholder="42" />
+              </div>
+              <button class="primary" type="submit">📡 Capter</button>
+            </form>
+            <div id="b-result"></div>
+            <p class="hint">
+              Ce que l'appli fait quand elle capte un beacon : seule une room publique est renvoyée,
+              jamais une privée. Le minor se règle dans ⚙ Réglages.
+            </p>
+          </section>
+        </div>
 
-        <section data-panel="members" role="tabpanel">
-          <h2>Membres · <code>/v1/rooms/:id/members</code></h2>
-          <p class="hint">
-            On invite par id, ami ou non. Seul le propriétaire invite ; il retire n'importe qui, un
-            membre peut seulement se retirer lui-même. PUT et DELETE sont idempotents (204 à chaque
-            fois). Invite Bob dans une room privée, puis fais un GET avec Bob : 200 au lieu de 404.
-          </p>
-          <div class="row">
-            <div>
-              <label for="member-user">Utilisateur visé</label>
-              <select id="member-user"></select>
-            </div>
-          </div>
-          <label for="member-id">ou un id quelconque (prioritaire s'il est rempli)</label>
-          <input id="member-id" placeholder="uuid" autocomplete="off" />
-          <div class="actions">
-            <button class="primary" type="button" id="member-put">PUT inviter</button>
-            <button class="danger" type="button" id="member-delete">DELETE retirer</button>
-            <button type="button" id="member-list">GET la liste</button>
-          </div>
-        </section>
-
-        <section data-panel="tracks" role="tabpanel">
-          <h2>Catalogue · <code>/v1/tracks</code></h2>
-          <p class="hint">
-            La recherche passe par Jamendo et enregistre les résultats : on ne voit que nos ids,
-            jamais celui de Jamendo. Limitée par utilisateur (429 au-delà). Sans
-            <code>JAMENDO_CLIENT_ID</code> dans <code>.env</code>, réponse 503.
-          </p>
-          <form id="track-search-form" class="row">
-            <div>
-              <label for="track-q">Recherche (titre, artiste)</label>
-              <input id="track-q" maxlength="100" placeholder="lofi" autocomplete="off" />
-            </div>
-            <div style="flex: 0 0 70px">
-              <label for="track-limit">Nombre</label>
-              <input id="track-limit" type="number" min="1" max="50" value="10" />
-            </div>
-            <button class="primary" type="submit">GET /v1/tracks</button>
-          </form>
-          <ul id="tracks" class="list"></ul>
-          <p class="hint" id="tracks-hint">
-            Clique sur un morceau pour copier son id ci-dessous, ▶ pour demander son URL et
-            l'écouter.
-          </p>
-          <label for="track-id">Morceau visé (id)</label>
-          <input id="track-id" placeholder="uuid" autocomplete="off" />
-          <div class="actions">
-            <button type="button" id="track-stream">GET …/stream et écouter</button>
-            <button type="button" id="track-burst">Tester la limite (31 recherches)</button>
-          </div>
-          <audio id="player" controls preload="none" hidden></audio>
-        </section>
-
-        <section data-panel="socket" role="tabpanel">
-          <h2>Temps réel (Socket.IO)</h2>
-          <p class="hint">
-            Une connexion par utilisateur : connecte Alice et Bob, abonne-les à la même room, puis
-            envoie un message. Il arrive chez tous les abonnés.
-          </p>
-          <ul id="sockets" class="list"></ul>
-          <div class="actions">
-            <button type="button" id="sock-connect">Connecter l'utilisateur actif</button>
-            <button type="button" id="sock-disconnect" disabled>Déconnecter</button>
-          </div>
-          <form id="sub-form" class="row" style="margin-top: 8px">
-            <div>
-              <label for="sub-id">Room</label>
-              <input id="sub-id" placeholder="uuid" />
-            </div>
-            <button type="submit" id="sub-btn" disabled>subscribe</button>
-            <button type="button" id="unsub-btn" disabled>unsubscribe</button>
-          </form>
-          <form id="msg-form" class="row" style="margin-top: 8px">
-            <div>
-              <label for="msg-text">Message (dev:broadcast)</label>
-              <input id="msg-text" maxlength="500" placeholder="Salut la room" />
-            </div>
-            <button type="submit" id="msg-btn" class="primary" disabled>Envoyer</button>
-          </form>
-        </section>
+        <!-- ---------- realtime ---------- -->
+        <div data-panel="realtime" role="tabpanel">
+          <section>
+            <h2>Connexions Socket.IO</h2>
+            <label class="check">
+              <input type="checkbox" id="rt-auto" checked />
+              Connecter tous les utilisateurs et les abonner à la room courante (recommandé)
+            </label>
+            <ul id="sockets" class="list" style="margin-top: 8px"></ul>
+            <p class="hint">
+              Chaque événement reçu s'affiche une fois dans le journal avec la liste de ceux qui
+              l'ont reçu. La vue de la room se recharge toute seule.
+            </p>
+          </section>
+          <section>
+            <h2>Manuel (utilisateur actif)</h2>
+            <form id="rt-sub-form" class="row">
+              <div>
+                <label for="rt-room">Room</label>
+                <input id="rt-room" placeholder="uuid" autocomplete="off" />
+              </div>
+              <button type="submit">subscribe</button>
+              <button type="button" id="rt-unsub">unsubscribe</button>
+            </form>
+            <form id="rt-msg-form" class="row" style="margin-top: 8px">
+              <div>
+                <label for="rt-msg">Message (dev:broadcast)</label>
+                <input id="rt-msg" maxlength="500" placeholder="Salut la room" />
+              </div>
+              <button type="submit" class="primary">Envoyer</button>
+            </form>
+            <p class="hint">
+              Pour tester les refus : abonne un inconnu à une room privée (NOT_FOUND).
+            </p>
+          </section>
+        </div>
       </div>
 
-      <section>
-        <div class="log-head">
-          <h2>Échanges</h2>
-          <button type="button" id="clear-log">Vider</button>
+      <!-- ================= log ================= -->
+      <section class="col-log">
+        <div class="section-head">
+          <h2>Journal</h2>
+          <button type="button" class="small" id="clear-log">Vider</button>
         </div>
         <div id="log"></div>
       </section>
@@ -623,8 +941,21 @@
     <script>
       const $ = (id) => document.getElementById(id);
       const TOKEN_TTL_MS = 14 * 60 * 1000;
+      const NAMES = ['Alice', 'Bob', 'Chloé', 'David', 'Emma', 'Farid', 'Gabin', 'Hana'];
+      const LYON = { lat: 45.7578, lng: 4.832 };
 
-      // Per-browser conveniences only: the real data lives in the database
+      // Small DOM builder: el('li', { className: 'x', onclick }, child, 'text')
+      function el(tag, props = {}, ...children) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props)) {
+          if (key === 'dataset') Object.assign(node.dataset, value);
+          else node[key] = value;
+        }
+        node.append(...children.filter((child) => child != null && child !== false));
+        return node;
+      }
+
+      // ---------- per-browser state (the real data lives in the database) ----------
       const store = {
         read(key, fallback) {
           try {
@@ -644,75 +975,67 @@
 
       const state = {
         users: store.read('users', []),
-        rooms: store.read('rooms', []),
         activeId: store.read('activeId', null),
-        socket: null,
+        roomId: store.read('roomId', null),
+        rooms: [], // GET /v1/rooms for the active user
+        room: null, // GET /v1/rooms/:id for the active user, null if hidden
+        queue: null,
+        playback: null,
+        members: null,
       };
       const save = () => {
         store.write('users', state.users);
-        store.write('rooms', state.rooms);
         store.write('activeId', state.activeId);
+        store.write('roomId', state.roomId);
       };
       const activeUser = () => state.users.find((u) => u.id === state.activeId) ?? null;
-      const userName = (id) => state.users.find((u) => u.id === id)?.displayName ?? id?.slice(0, 8);
+      const userName = (id) =>
+        state.users.find((u) => u.id === id)?.displayName ?? `${id?.slice(0, 8)}…`;
+      const isOwner = () => state.room != null && state.room.ownerId === state.activeId;
+      const roomUrl = (suffix = '') => `/v1/rooms/${encodeURIComponent(state.roomId)}${suffix}`;
 
       // ---------- log ----------
       const pretty = (value) =>
         typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 
-      function logEntry({ cls, badge, title, sections, open = false }) {
-        const entry = document.createElement('details');
-        entry.className = 'entry';
-        entry.open = open;
-        const summary = document.createElement('summary');
-        const b = document.createElement('span');
-        b.className = `status ${cls}`;
-        b.textContent = badge;
-        const t = document.createElement('code');
-        t.textContent = title;
-        const time = document.createElement('small');
-        time.className = 'hint';
-        time.textContent = new Date().toLocaleTimeString();
-        summary.append(b, t, time);
-        entry.append(summary);
-        const grid = document.createElement('div');
-        grid.className = 'grid2';
+      function logEntry({ cls, badge, title, sections = [], open = false }) {
+        const grid = el('div', { className: 'grid2' });
         for (const [label, content] of sections) {
-          const box = document.createElement('div');
-          const l = document.createElement('small');
-          l.className = 'hint';
-          l.textContent = label;
-          const pre = document.createElement('pre');
-          pre.textContent = pretty(content);
-          box.append(l, pre);
-          grid.append(box);
+          grid.append(el('div', {}, el('small', {}, label), el('pre', {}, pretty(content))));
         }
-        entry.append(grid);
+        const entry = el(
+          'details',
+          { className: 'entry', open },
+          el(
+            'summary',
+            {},
+            el('span', { className: `status ${cls}` }, String(badge)),
+            el('code', {}, title),
+            el('small', {}, new Date().toLocaleTimeString()),
+          ),
+          grid,
+        );
         $('log').prepend(entry);
       }
+      const note = (title, why, cls = 's4') =>
+        logEntry({ cls, badge: '—', title, sections: why ? [['pourquoi', why]] : [], open: true });
+      $('clear-log').onclick = () => $('log').replaceChildren();
 
       // ---------- http ----------
-      const SHOWN_HEADERS = [
-        'content-type',
-        'etag',
-        'location',
-        'www-authenticate',
-        'x-request-id',
-      ];
-      const shortToken = (token) => `Bearer ${token.slice(0, 16)}…${token.slice(-6)}`;
+      const SHOWN_HEADERS = ['content-type', 'etag', 'location', 'retry-after', 'www-authenticate'];
+      // Log titles stay on one line: ids cut to 8 characters, the full url is in the details
+      const shortIds = (url) => url.replace(/([0-9a-f]{8})-[0-9a-f-]{27}/g, '$1…');
+      const shortToken = (token) => `Bearer ${token.slice(0, 12)}…${token.slice(-6)}`;
+      const parseJson = (text) => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return text;
+        }
+      };
 
-      async function call(
-        method,
-        url,
-        {
-          body,
-          rawBody,
-          user = activeUser(),
-          log = true,
-          headers: extra = {},
-          checkGone = true,
-        } = {},
-      ) {
+      async function call(method, url, opts = {}) {
+        const { body, rawBody, user = activeUser(), log = true, headers: extra = {} } = opts;
         const headers = { ...extra };
         if (user) {
           const token = await freshToken(user);
@@ -727,11 +1050,7 @@
         try {
           res = await fetch(url, { method, headers, body: payload });
           const text = await res.text();
-          try {
-            data = text ? JSON.parse(text) : null;
-          } catch {
-            data = text;
-          }
+          data = text ? parseJson(text) : null;
         } catch (err) {
           logEntry({
             cls: 's0',
@@ -740,78 +1059,74 @@
             sections: [['réseau', err.message]],
             open: true,
           });
-          throw err;
+          return { status: 0, headers: new Headers(), data: null };
         }
 
         if (log) {
-          const shownHeaders = Object.fromEntries(
+          const shown = Object.fromEntries(
             SHOWN_HEADERS.filter((h) => res.headers.has(h)).map((h) => [h, res.headers.get(h)]),
           );
-          const reqHeaders = { ...headers };
-          if (reqHeaders.authorization)
-            reqHeaders.authorization = shortToken(reqHeaders.authorization.slice(7));
+          const sent = { ...headers };
+          if (sent.authorization) sent.authorization = shortToken(sent.authorization.slice(7));
           logEntry({
             cls: `s${String(res.status)[0]}`,
             badge: res.status,
-            title: `${method} ${url}${user ? `  · ${user.displayName}` : '  · sans token'}`,
+            title: `${method} ${shortIds(url)}  · ${user ? user.displayName : 'sans token'}`,
             open: res.status >= 400,
             sections: [
               [
                 'requête',
                 {
-                  headers: reqHeaders,
-                  body: payload === undefined ? undefined : safeParse(payload),
+                  url,
+                  headers: sent,
+                  body: payload === undefined ? undefined : parseJson(payload),
                 },
               ],
-              ['réponse', { headers: shownHeaders, body: data }],
+              ['réponse', { headers: shown, body: data }],
             ],
           });
         }
-        // A remembered room answering 404 may be gone from the database: check, then forget it
-        const roomId = /^\/v1\/rooms\/([^/?]+)/.exec(url)?.[1];
-        if (checkGone && res.status === 404 && roomId)
-          await checkRoomGone(decodeURIComponent(roomId));
         return { status: res.status, headers: res.headers, data };
       }
 
-      const safeParse = (text) => {
-        try {
-          return JSON.parse(text);
-        } catch {
-          return text;
-        }
-      };
+      // Every action needs someone to act as
+      function needUser() {
+        if (activeUser()) return true;
+        note("Crée d'abord un utilisateur", 'Colonne de gauche, « + Créer ».');
+        return false;
+      }
+      function needRoom() {
+        if (!needUser()) return false;
+        if (state.roomId) return true;
+        note("Choisis d'abord une room", 'Colonne de gauche : clique sur une room ou crée-en une.');
+        return false;
+      }
 
-      // Returns null (and explains why in the log) when no token can be had
+      // ---------- tokens ----------
+      // Returns null (and says why in the log) when no token can be had
       async function freshToken(user) {
         if (Date.now() - user.issuedAt < TOKEN_TTL_MS) return user.accessToken;
         let res;
         try {
           res = await fetch(`/dev/users/${user.id}/token`, { method: 'POST' });
         } catch (err) {
-          tokenProblem(
-            user,
-            'ERR',
-            `API injoignable (${err.message}). Elle redémarre peut-être : réessaie dans quelques secondes.`,
+          note(
+            `Pas de token pour ${user.displayName}`,
+            `API injoignable (${err.message}). Elle redémarre peut-être : réessaie dans un instant.`,
           );
           return null;
         }
         if (res.status === 404) {
-          // Remembered by this browser, but gone from the database (fclean, re, reset...)
+          // Remembered by this browser, but gone from the database (fclean, reset...)
           forgetUser(user.id);
-          tokenProblem(
-            user,
-            404,
-            "Cet utilisateur n'existe plus en base (base recréée depuis ?). Il est retiré de la liste : recrée-le.",
+          note(
+            `${user.displayName} n'existe plus en base`,
+            'Base recréée depuis ? Il est retiré de la liste : recrée-le.',
           );
           return null;
         }
         if (!res.ok) {
-          tokenProblem(
-            user,
-            res.status,
-            "Renouvellement refusé. Regarde les logs de l'API (make logs).",
-          );
+          note(`Pas de token pour ${user.displayName}`, `Refusé (${res.status}) : make logs.`);
           return null;
         }
         user.accessToken = (await res.json()).accessToken;
@@ -820,95 +1135,118 @@
         return user.accessToken;
       }
 
-      function tokenProblem(user, badge, why) {
-        logEntry({
-          cls: 's4',
-          badge,
-          title: `Pas de token pour ${user.displayName}`,
-          sections: [['pourquoi', why]],
-          open: true,
-        });
-      }
-
-      function forgetUser(id) {
-        // A user cannot be deleted while owning rooms (fk_rooms_owner): gone user, gone rooms
-        const owned = state.rooms.filter((r) => r.ownerId === id);
-        if (owned.length > 0) {
-          forgetRooms(
-            owned.map((r) => r.id),
-            'propriétaire disparu de la base, ses rooms avec lui',
-          );
-        }
-        state.users = state.users.filter((u) => u.id !== id);
-        if (state.activeId === id) state.activeId = state.users[0]?.id ?? null;
-        sockets.get(id)?.disconnect();
-        sockets.delete(id);
-        save();
-        renderUsers();
-        renderSockets();
-      }
-
-      // 404 does not always mean "deleted": a private room also answers 404 to a stranger.
-      // So ask again as its owner; only if the owner gets 404 too is the room really gone.
-      async function checkRoomGone(id) {
-        const room = state.rooms.find((r) => r.id === id);
-        if (!room) return;
-        const owner = state.users.find((u) => u.id === room.ownerId);
-        // Owner unknown to this page (seed data...): cannot tell hidden from deleted, keep it
-        if (!owner) return;
-        const res = await call('GET', `/v1/rooms/${encodeURIComponent(id)}`, {
-          user: owner,
-          log: false,
-          checkGone: false,
-        });
-        if (res.status === 404)
-          forgetRooms([id], 'même son propriétaire reçoit 404 : supprimée, ou base recréée');
-      }
-
-      function forgetRooms(ids, why) {
-        const names = state.rooms.filter((r) => ids.includes(r.id)).map((r) => r.name);
-        if (names.length === 0) return;
-        state.rooms = state.rooms.filter((r) => !ids.includes(r.id));
-        save();
-        renderRooms();
-        logEntry({
-          cls: 's4',
-          badge: '—',
-          title: `Retirée de la liste : ${names.join(', ')}`,
-          sections: [['pourquoi', `${why[0].toUpperCase()}${why.slice(1)}.`]],
-          open: true,
-        });
-      }
-
       // ---------- users ----------
       function renderUsers() {
         const list = $('users');
         list.replaceChildren();
         for (const user of state.users) {
-          const li = document.createElement('li');
-          li.className = user.id === state.activeId ? 'active' : '';
-          const name = document.createElement('strong');
-          name.textContent = user.displayName;
-          const id = document.createElement('small');
-          id.textContent = user.id;
-          li.append(name, id);
-          li.onclick = () => selectUser(user.id);
-          list.append(li);
+          const socket = sockets.get(user.id);
+          list.append(
+            el(
+              'li',
+              {
+                className: `pick${user.id === state.activeId ? ' active' : ''}`,
+                onclick: () => selectUser(user.id),
+              },
+              el('span', {
+                className: `dot${socket?.connected ? ' on' : ''}`,
+                title: socket?.connected ? 'socket connecté' : 'socket déconnecté',
+              }),
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, user.displayName),
+                el('small', {}, user.id),
+              ),
+              el('button', {
+                type: 'button',
+                className: 'small',
+                textContent: '📋',
+                title: 'Copier son access token (pour Swagger)',
+                onclick: (event) => {
+                  event.stopPropagation();
+                  copyToken(user);
+                },
+              }),
+              el('button', {
+                type: 'button',
+                className: 'small',
+                textContent: '✕',
+                title: 'Oublier dans ce navigateur (reste en base)',
+                onclick: (event) => {
+                  event.stopPropagation();
+                  forgetUser(user.id);
+                },
+              }),
+            ),
+          );
         }
         $('users-hint').hidden = state.users.length >= 2;
-        renderMemberChoices();
+        $('user-name').placeholder = nextName();
+
+        const chips = $('user-chips');
+        chips.replaceChildren();
+        for (const user of state.users) {
+          chips.append(
+            el(
+              'button',
+              {
+                type: 'button',
+                className: `chip${user.id === state.activeId ? ' active' : ''}`,
+                onclick: () => selectUser(user.id),
+              },
+              user.displayName,
+            ),
+          );
+        }
+        if (state.users.length === 0)
+          chips.append(el('small', {}, 'personne (crée un utilisateur)'));
+        renderInviteChoices();
       }
 
-      function selectUser(id) {
+      const nextName = () =>
+        NAMES.find((name) => !state.users.some((u) => u.displayName === name)) ??
+        `User ${state.users.length + 1}`;
+
+      async function selectUser(id) {
+        if (id === state.activeId) return;
         state.activeId = id;
+        save();
+        renderUsers();
+        renderSockets();
+        // Everything depends on who asks: visible rooms, the room itself, myVote, the role
+        await loadRooms();
+        await loadRoom();
+      }
+
+      function forgetUser(id) {
+        sockets.get(id)?.disconnect();
+        sockets.delete(id);
+        state.users = state.users.filter((u) => u.id !== id);
+        if (state.activeId === id) state.activeId = state.users[0]?.id ?? null;
         save();
         renderUsers();
         renderSockets();
       }
 
+      async function copyToken(user) {
+        const token = await freshToken(user);
+        if (token == null) return;
+        try {
+          await navigator.clipboard.writeText(token);
+          note(
+            `Token de ${user.displayName} copié`,
+            'Swagger → Authorize → colle-le. Valable 15 min.',
+            's2',
+          );
+        } catch {
+          note(`Token de ${user.displayName}`, token, 's2');
+        }
+      }
+
       $('user-form').onsubmit = async (event) => {
         event.preventDefault();
-        const displayName = $('user-name').value;
+        const displayName = $('user-name').value.trim() || nextName();
         const res = await call('POST', '/dev/users', { body: { displayName }, user: null });
         if (res.status !== 201) return;
         state.users.push({
@@ -916,275 +1254,525 @@
           accessToken: res.data.accessToken,
           issuedAt: Date.now(),
         });
-        if (!activeUser()) state.activeId = res.data.user.id;
-        save();
         $('user-name').value = '';
+        const first = !activeUser();
+        if (first) state.activeId = res.data.user.id;
+        save();
         renderUsers();
+        if ($('rt-auto').checked) await connect(state.users.at(-1));
+        if (first) await loadRooms();
       };
 
       // ---------- rooms ----------
-      function rememberRoom(room) {
-        if (room.id === $('get-id').value.trim()) {
-          $('patch-etag').value = `"${room.version}"`;
+      async function loadRooms() {
+        if (!activeUser()) {
+          state.rooms = [];
+          return renderRooms();
         }
-        state.rooms = [room, ...state.rooms.filter((r) => r.id !== room.id)].slice(0, 30);
-        save();
+        const res = await call('GET', '/v1/rooms?limit=50');
+        if (res.status === 200) state.rooms = res.data.rooms;
         renderRooms();
+      }
+
+      function policyTag(room) {
+        return el(
+          'span',
+          { className: `tag${room.accessPolicy === 'everyone' ? '' : ' warn'}` },
+          room.accessPolicy,
+        );
       }
 
       function renderRooms() {
         const list = $('rooms');
         list.replaceChildren();
         for (const room of state.rooms) {
-          const li = document.createElement('li');
-          const name = document.createElement('strong');
-          name.textContent = room.name;
-          const vis = document.createElement('span');
-          vis.className = 'tag';
-          vis.textContent = room.visibility;
-          const pol = document.createElement('span');
-          pol.className = 'tag';
-          pol.textContent = room.accessPolicy;
-          const owner = document.createElement('small');
-          owner.textContent = `par ${userName(room.ownerId)}`;
-          li.className = room.id === targetId() ? 'active' : '';
-          li.append(name, vis, pol, owner);
-          li.onclick = () => {
-            $('get-id').value = room.id;
-            $('patch-etag').value = `"${room.version}"`;
-            $('sub-id').value = room.id;
-            getRoom(room.id);
-          };
-          list.append(li);
+          list.append(
+            el(
+              'li',
+              {
+                className: `pick${room.id === state.roomId ? ' active' : ''}`,
+                onclick: () => selectRoom(room.id),
+              },
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, room.name),
+                el('small', {}, `par ${userName(room.ownerId)}`),
+              ),
+              room.visibility === 'private' && el('span', { className: 'tag accent' }, 'privée'),
+              policyTag(room),
+            ),
+          );
         }
+        if (state.rooms.length === 0)
+          list.append(el('li', { className: 'empty' }, 'Aucune room visible.'));
       }
 
-      function roomBody() {
-        const body = { name: $('room-name').value };
-        if ($('room-desc').value) body.description = $('room-desc').value;
-        if ($('room-visibility').value) body.visibility = $('room-visibility').value;
-        if ($('room-policy').value) body.accessPolicy = $('room-policy').value;
-        const start = $('room-start').value;
-        const end = $('room-end').value;
-        if (start || end) {
+      async function selectRoom(id) {
+        if (state.roomId !== id) {
+          state.roomId = id;
+          state.queue = state.playback = state.members = null;
+          save();
+          stopLocalPlayer();
+        }
+        renderRooms();
+        await loadRoom();
+        autoSubscribe();
+      }
+
+      // Reloads the current room and what the open tab shows, as the active user
+      async function loadRoom() {
+        if (!state.roomId || !activeUser()) return renderRoom();
+        const res = await call('GET', roomUrl());
+        if (res.status === 200) {
+          state.room = res.data;
+          const i = state.rooms.findIndex((r) => r.id === res.data.id);
+          if (i >= 0) state.rooms[i] = res.data;
+        } else {
+          state.room = null;
+          if (res.status === 404 && (await roomIsGone())) {
+            note('La room courante n’existe plus', 'Même son propriétaire reçoit 404.');
+            state.roomId = null;
+            save();
+          }
+        }
+        renderRoom();
+        renderRooms();
+        await loadTab();
+      }
+
+      // A private room also answers 404 to a stranger: only gone if its owner gets 404 too
+      async function roomIsGone() {
+        const known = state.rooms.find((r) => r.id === state.roomId) ?? state.lastRoom;
+        const owner = known && state.users.find((u) => u.id === known.ownerId);
+        if (!owner || owner.id === state.activeId) return Boolean(owner);
+        const res = await call('GET', roomUrl(), { user: owner, log: false });
+        return res.status === 404;
+      }
+
+      function renderRoom() {
+        const room = state.room;
+        $('room-empty').hidden = Boolean(state.roomId);
+        $('room-view').hidden = !state.roomId;
+        if (!state.roomId) return;
+        if (room) state.lastRoom = room;
+        const shown = room ?? state.lastRoom;
+        $('r-name').textContent = shown?.name ?? state.roomId;
+        $('r-desc').textContent = shown?.description ?? '';
+        const meta = $('r-meta');
+        meta.replaceChildren();
+        if (shown) {
+          meta.append(
+            ...[
+              el(
+                'span',
+                { className: `tag${shown.visibility === 'private' ? ' accent' : ''}` },
+                shown.visibility,
+              ),
+              policyTag(shown),
+              el('span', { className: 'tag' }, `v${shown.version}`),
+              shown.beaconMinor != null &&
+                el('span', { className: 'tag' }, `📡 ${shown.beaconMinor}`),
+              el('small', {}, `propriétaire : ${userName(shown.ownerId)}`),
+              shown.window &&
+                el('small', {}, `· ${fmtDate(shown.window.start)} → ${fmtDate(shown.window.end)}`),
+              shown.place &&
+                el(
+                  'small',
+                  {},
+                  `· ${shown.place.lat}, ${shown.place.lng} (${shown.place.radiusM} m)`,
+                ),
+            ].filter(Boolean),
+          );
+        }
+        $('r-hidden').hidden = Boolean(room);
+        $('r-hidden').textContent =
+          `404 pour ${activeUser()?.displayName} : room privée, ni propriétaire ni membre.`;
+        $('p-role').textContent = room
+          ? isOwner()
+            ? 'tu es le propriétaire'
+            : 'tu n’es pas le propriétaire : pas de contrôle de lecture'
+          : '';
+        fillEditForm();
+        renderControls();
+      }
+
+      const fmtDate = (iso) =>
+        new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+      // datetime-local wants local time without zone
+      const toLocalInput = (iso) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      };
+      const fromLocalInput = (value) => (value ? new Date(value).toISOString() : '');
+
+      $('rooms-refresh').onclick = () => needUser() && loadRooms();
+      $('r-reload').onclick = () => loadRoom();
+
+      // ---------- create ----------
+      $('create-toggle').onclick = () => {
+        $('create-form').hidden = !$('create-form').hidden;
+        if (!$('create-form').hidden) $('c-name').focus();
+      };
+      $('create-cancel').onclick = () => ($('create-form').hidden = true);
+      $('c-policy').onchange = () => {
+        const placeTime = $('c-policy').value === 'place_time';
+        $('c-place-time').hidden = !placeTime;
+        if (placeTime && !$('c-start').value) {
+          // Opened now for two hours: votes work right away
+          $('c-start').value = toLocalInput(new Date(Date.now() - 5 * 60000).toISOString());
+          $('c-end').value = toLocalInput(new Date(Date.now() + 2 * 3600000).toISOString());
+        }
+      };
+      $('c-lyon').onclick = () => {
+        $('c-lat').value = LYON.lat;
+        $('c-lng').value = LYON.lng;
+      };
+      $('c-here').onclick = () =>
+        myPosition((pos) => {
+          $('c-lat').value = pos.lat;
+          $('c-lng').value = pos.lng;
+        });
+
+      function createBody() {
+        const body = {
+          name: $('c-name').value,
+          visibility: $('c-visibility').value,
+          accessPolicy: $('c-policy').value,
+        };
+        if ($('c-desc').value) body.description = $('c-desc').value;
+        if (body.accessPolicy === 'place_time') {
           body.window = {
-            start: start ? new Date(start).toISOString() : '',
-            end: end ? new Date(end).toISOString() : '',
+            start: fromLocalInput($('c-start').value),
+            end: fromLocalInput($('c-end').value),
+          };
+          body.place = {
+            lat: Number($('c-lat').value),
+            lng: Number($('c-lng').value),
+            radiusM: Number($('c-radius').value),
           };
         }
-        const [lat, lng, radius] = ['room-lat', 'room-lng', 'room-radius'].map((id) => $(id).value);
-        if (lat || lng || radius) {
-          body.place = { lat: Number(lat), lng: Number(lng), radiusM: Number(radius) };
-        }
-        if ($('room-beacon').value) body.beaconMinor = Number($('room-beacon').value);
+        if ($('c-beacon').value) body.beaconMinor = Number($('c-beacon').value);
         return body;
       }
 
-      async function createRoom(options) {
-        if (!activeUser()) return alertNoUser();
-        const res = await call('POST', '/v1/rooms', options);
-        if (res.status === 201) {
-          $('get-id').value = res.data.id;
-          $('sub-id').value = res.data.id;
-          rememberRoom(res.data);
-        }
+      async function createRoom(opts) {
+        if (!needUser()) return;
+        const res = await call('POST', '/v1/rooms', opts);
+        if (res.status !== 201) return;
+        $('create-form').hidden = true;
+        $('c-name').value = '';
+        await loadRooms();
+        await selectRoom(res.data.id);
       }
-
-      async function getRoom(id, { anonymous = false } = {}) {
-        const user = anonymous ? null : activeUser();
-        if (!anonymous && !user) return alertNoUser();
-        const res = await call('GET', `/v1/rooms/${encodeURIComponent(id)}`, { user });
-        if (res.status === 200) rememberRoom(res.data);
-      }
-
-      function alertNoUser() {
-        logEntry({
-          cls: 's4',
-          badge: '—',
-          title: "Crée ou choisis d'abord un utilisateur",
-          sections: [],
-          open: true,
-        });
-      }
-
-      $('room-form').onsubmit = (event) => {
+      $('create-form').onsubmit = (event) => {
         event.preventDefault();
-        createRoom({ body: roomBody() });
+        createRoom({ body: createBody() });
       };
-      $('patch-form').onsubmit = async (event) => {
-        event.preventDefault();
-        if (!activeUser()) return alertNoUser();
-        const id = $('get-id').value.trim();
-        const ifMatch = $('patch-etag').value.trim();
-        const res = await call('PATCH', `/v1/rooms/${encodeURIComponent(id)}`, {
-          rawBody: $('patch-json').value,
-          headers: ifMatch ? { 'if-match': ifMatch } : {},
-        });
-        if (res.status === 200) rememberRoom(res.data);
-      };
-      $('room-raw-toggle').onclick = () => {
-        $('room-raw').hidden = !$('room-raw').hidden;
-      };
-      $('room-raw-send').onclick = () => createRoom({ rawBody: $('room-json').value });
-      const targetId = () => $('get-id').value.trim();
-      // Enter in the id field reads the room, whatever the open tab
-      $('get-form').onsubmit = (event) => {
-        event.preventDefault();
-        getRoom(targetId());
-      };
-      $('get-btn').onclick = () => getRoom(targetId());
-      $('no-token').onclick = () => getRoom(targetId() || 'x', { anonymous: true });
+      $('c-raw-send').onclick = () => createRoom({ rawBody: $('c-raw').value });
 
-      // Found rooms go to the room list, like a GET of each one
-      async function findRooms(query) {
-        if (!activeUser()) return alertNoUser();
-        const res = await call('GET', `/v1/rooms${query}`);
-        if (res.status === 200) [...res.data.rooms].reverse().forEach(rememberRoom);
-      }
-      $('find-beacon-btn').onclick = () => {
-        const minor = $('find-beacon').value.trim();
-        findRooms(`?beacon=${encodeURIComponent(minor)}`);
-      };
-      $('list-btn').onclick = () => findRooms('?limit=20');
-
-      async function deleteRoom(id, { anonymous = false } = {}) {
-        const user = anonymous ? null : activeUser();
-        if (!anonymous && !user) return alertNoUser();
-        const res = await call('DELETE', `/v1/rooms/${encodeURIComponent(id)}`, { user });
-        if (res.status === 204) {
-          state.rooms = state.rooms.filter((r) => r.id !== id);
-          save();
-          renderRooms();
-          $('patch-etag').value = '';
-        }
-      }
-      $('delete-btn').onclick = () => deleteRoom(targetId());
-      $('delete-no-token').onclick = () => deleteRoom(targetId() || 'x', { anonymous: true });
-
-      // ---------- members ----------
-      function renderMemberChoices() {
-        const select = $('member-user');
-        const previous = select.value;
-        select.replaceChildren();
-        for (const user of state.users) {
-          const option = document.createElement('option');
-          option.value = user.id;
-          option.textContent = user.displayName;
-          select.append(option);
-        }
-        if (state.users.some((u) => u.id === previous)) select.value = previous;
-      }
-      const memberTarget = () => $('member-id').value.trim() || $('member-user').value;
-      const membersUrl = (userId) => {
-        const base = `/v1/rooms/${encodeURIComponent(targetId())}/members`;
-        return userId === undefined ? base : `${base}/${encodeURIComponent(userId)}`;
-      };
-      $('member-put').onclick = () => {
-        if (!activeUser()) return alertNoUser();
-        call('PUT', membersUrl(memberTarget()));
-      };
-      $('member-delete').onclick = () => {
-        if (!activeUser()) return alertNoUser();
-        call('DELETE', membersUrl(memberTarget()));
-      };
-      $('member-list').onclick = () => {
-        if (!activeUser()) return alertNoUser();
-        call('GET', membersUrl());
-      };
-
-      // ---------- tracks ----------
-      const formatDuration = (ms) =>
-        ms == null
-          ? '?'
-          : `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
-
-      function renderTracks(tracks) {
-        const list = $('tracks');
-        list.replaceChildren();
-        for (const track of tracks) {
-          const li = document.createElement('li');
-          li.className = track.id === $('track-id').value.trim() ? 'active' : '';
-          const cover = document.createElement('img');
-          cover.alt = '';
-          cover.loading = 'lazy';
-          if (track.coverUrl) cover.src = track.coverUrl;
-          const text = document.createElement('div');
-          text.className = 'track-text';
-          const title = document.createElement('strong');
-          title.textContent = track.title;
-          const artist = document.createElement('small');
-          artist.textContent = `${track.artist} · ${track.id.slice(0, 8)}…`;
-          text.append(title, artist);
-          const duration = document.createElement('span');
-          duration.className = 'tag';
-          duration.textContent = formatDuration(track.durationMs);
-          const play = document.createElement('button');
-          play.type = 'button';
-          play.textContent = '▶';
-          play.title = 'GET /v1/tracks/:id/stream puis lecture';
-          play.onclick = (event) => {
-            event.stopPropagation();
-            selectTrack(track.id, tracks);
-            playTrack(track.id);
-          };
-          li.append(cover, text, duration, play);
-          li.onclick = () => selectTrack(track.id, tracks);
-          list.append(li);
-        }
-        $('tracks-hint').hidden = tracks.length === 0;
+      // ---------- settings ----------
+      function fillEditForm() {
+        const room = state.room;
+        if (!room) return;
+        $('e-name').value = room.name;
+        $('e-desc').value = room.description ?? '';
+        $('e-visibility').value = room.visibility;
+        $('e-policy').value = room.accessPolicy;
+        $('e-start').value = toLocalInput(room.window?.start);
+        $('e-end').value = toLocalInput(room.window?.end);
+        $('e-lat').value = room.place?.lat ?? '';
+        $('e-lng').value = room.place?.lng ?? '';
+        $('e-radius').value = room.place?.radiusM ?? '';
+        $('e-beacon').value = room.beaconMinor ?? '';
+        $('e-etag').value = `"${room.version}"`;
       }
 
-      function selectTrack(id, tracks) {
-        $('track-id').value = id;
-        renderTracks(tracks);
-      }
-
-      let lastTracks = [];
-      const searchUrl = () => {
-        const params = new URLSearchParams({ q: $('track-q').value });
-        if ($('track-limit').value) params.set('limit', $('track-limit').value);
-        return `/v1/tracks?${params}`;
-      };
-
-      $('track-search-form').onsubmit = async (event) => {
-        event.preventDefault();
-        if (!activeUser()) return alertNoUser();
-        const res = await call('GET', searchUrl());
-        if (res.status === 200) {
-          lastTracks = res.data.tracks;
-          renderTracks(lastTracks);
-        }
-      };
-
-      // The stream URL is short-lived: asked again on every play, like the owner's phone will
-      async function playTrack(id) {
-        if (!activeUser()) return alertNoUser();
-        const res = await call('GET', `/v1/tracks/${encodeURIComponent(id)}/stream`);
-        const player = $('player');
-        if (res.status !== 200) {
-          player.pause();
-          return;
-        }
-        player.hidden = false;
-        player.src = res.data.url;
-        player.play().catch((err) =>
-          logEntry({
-            cls: 's4',
-            badge: '—',
-            title: 'Le navigateur refuse de lire ce flux',
-            sections: [['pourquoi', err.message]],
-            open: true,
-          }),
+      // Only the fields that differ from the room as read: a real PATCH
+      function editDiff() {
+        const room = state.room;
+        const next = {
+          name: $('e-name').value,
+          description: $('e-desc').value || null,
+          visibility: $('e-visibility').value,
+          accessPolicy: $('e-policy').value,
+          window:
+            $('e-start').value || $('e-end').value
+              ? { start: fromLocalInput($('e-start').value), end: fromLocalInput($('e-end').value) }
+              : null,
+          place:
+            $('e-lat').value || $('e-lng').value || $('e-radius').value
+              ? {
+                  lat: Number($('e-lat').value),
+                  lng: Number($('e-lng').value),
+                  radiusM: Number($('e-radius').value),
+                }
+              : null,
+          beaconMinor: $('e-beacon').value === '' ? null : Number($('e-beacon').value),
+        };
+        const before = {
+          ...room,
+          window: room.window && {
+            start: new Date(room.window.start).toISOString(),
+            end: new Date(room.window.end).toISOString(),
+          },
+        };
+        return Object.fromEntries(
+          Object.entries(next).filter(
+            ([key, value]) => JSON.stringify(value) !== JSON.stringify(before[key]),
+          ),
         );
       }
-      $('track-stream').onclick = () => playTrack($('track-id').value.trim() || 'x');
 
-      // Silent calls, one summary line: 31 entries in the log would hide everything else
-      $('track-burst').onclick = async () => {
-        if (!activeUser()) return alertNoUser();
+      async function patchRoom(opts) {
+        if (!needRoom()) return;
+        const ifMatch = $('e-etag').value.trim();
+        const res = await call('PATCH', roomUrl(), {
+          ...opts,
+          headers: ifMatch ? { 'if-match': ifMatch } : {},
+        });
+        if (res.status === 200) {
+          state.room = res.data;
+          renderRoom();
+          await loadRooms();
+        }
+      }
+      $('e-form').onsubmit = (event) => {
+        event.preventDefault();
+        if (!state.room) return needRoom();
+        const body = editDiff();
+        if (Object.keys(body).length === 0) return note('Rien à envoyer', 'Aucun champ modifié.');
+        patchRoom({ body });
+      };
+      $('e-reset').onclick = fillEditForm;
+      $('e-raw-send').onclick = () => patchRoom({ rawBody: $('e-raw').value });
+
+      async function deleteRoom(user) {
+        if (!needRoom()) return;
+        const res = await call('DELETE', roomUrl(), { user });
+        if (res.status === 204) {
+          state.roomId = null;
+          state.room = null;
+          save();
+          stopLocalPlayer();
+          renderRoom();
+          await loadRooms();
+        }
+      }
+      $('d-delete').onclick = () => {
+        if (state.room && !confirm(`Supprimer « ${state.room.name} » ?`)) return;
+        deleteRoom(activeUser());
+      };
+      $('d-delete-anon').onclick = () => deleteRoom(null);
+      $('d-get-anon').onclick = () => needRoom() && call('GET', roomUrl(), { user: null });
+
+      // ---------- tabs ----------
+      const TABS = ['queue', 'settings', 'members', 'discover', 'realtime'];
+      let tab = store.read('tab', 'queue');
+      function showTab(name) {
+        tab = TABS.includes(name) ? name : 'queue';
+        for (const button of document.querySelectorAll('[data-tab]')) {
+          button.setAttribute('aria-selected', String(button.dataset.tab === tab));
+        }
+        for (const panel of document.querySelectorAll('[data-panel]')) {
+          panel.hidden = panel.dataset.panel !== tab;
+        }
+        store.write('tab', tab);
+      }
+      for (const button of document.querySelectorAll('[data-tab]')) {
+        button.onclick = () => {
+          showTab(button.dataset.tab);
+          loadTab();
+        };
+      }
+      // Only what is on screen is fetched
+      async function loadTab() {
+        if (!state.room) {
+          renderQueue();
+          renderMembers();
+          return;
+        }
+        if (tab === 'queue') await Promise.all([loadQueue(), loadPlayback()]);
+        if (tab === 'members') await loadMembers();
+      }
+
+      // ---------- queue ----------
+      const fmtTime = (ms) =>
+        ms == null
+          ? '?'
+          : `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+
+      async function loadQueue() {
+        const res = await call('GET', roomUrl('/tracks'));
+        state.queue = res.status === 200 ? res.data : null;
+        renderQueue();
+        renderNow();
+      }
+
+      function locationHeaders() {
+        const value = $('q-location').value.trim();
+        return value ? { 'x-location': value } : {};
+      }
+
+      function renderQueue() {
+        const list = $('queue');
+        list.replaceChildren();
+        const items = state.queue?.queue ?? [];
+        items.forEach((item, i) => {
+          list.append(
+            el(
+              'li',
+              {},
+              el('span', { className: 'rank' }, String(i + 1)),
+              cover(item.track),
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, item.track.title),
+                el(
+                  'small',
+                  {},
+                  `${item.track.artist} · proposé par ${item.addedBy ? userName(item.addedBy) : '?'}`,
+                ),
+              ),
+              el('span', { className: 'votes' }, `${item.votes} ♥`),
+              el('button', {
+                type: 'button',
+                className: `small${item.myVote ? ' on' : ''}`,
+                textContent: item.myVote ? '✓ Voté' : 'Voter',
+                title: item.myVote ? 'DELETE …/vote' : 'PUT …/vote',
+                onclick: () => toggleVote(item),
+              }),
+            ),
+          );
+        });
+        if (items.length === 0) {
+          list.append(
+            el(
+              'li',
+              { className: 'empty' },
+              state.room ? 'File vide : propose un morceau ci-dessous.' : 'Pas de room visible.',
+            ),
+          );
+        }
+      }
+
+      async function toggleVote(item) {
+        const url = roomUrl(`/tracks/${item.id}/vote`);
+        const res = await call(item.myVote ? 'DELETE' : 'PUT', url, { headers: locationHeaders() });
+        if (res.status === 204) await loadQueue();
+      }
+
+      async function propose(track) {
+        if (!needRoom()) return;
+        const res = await call('POST', roomUrl('/tracks'), {
+          body: { trackId: track.id },
+          headers: locationHeaders(),
+        });
+        if (res.status === 201 || res.status === 200) await loadQueue();
+      }
+
+      const cover = (track) => {
+        const img = el('img', { alt: '', loading: 'lazy' });
+        if (track?.coverUrl) img.src = track.coverUrl;
+        return img;
+      };
+
+      $('q-reload').onclick = () => needRoom() && loadQueue();
+      $('q-loc-in').onclick = () => {
+        const place = state.room?.place;
+        if (!place)
+          return note('Cette room n’a pas de lieu', 'Seules les rooms place_time en ont un.');
+        $('q-location').value = `${place.lat},${place.lng}`;
+      };
+      $('q-loc-out').onclick = () => {
+        const place = state.room?.place ?? LYON;
+        $('q-location').value = `${(place.lat + 0.01).toFixed(6)},${place.lng}`;
+      };
+      $('q-loc-me').onclick = () =>
+        myPosition(
+          (pos) => ($('q-location').value = `${pos.lat.toFixed(6)},${pos.lng.toFixed(6)}`),
+        );
+
+      function myPosition(done) {
+        if (!navigator.geolocation)
+          return note('Géolocalisation indisponible', 'Navigateur sans API de position.');
+        navigator.geolocation.getCurrentPosition(
+          (p) => done({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          (err) => note('Position refusée', err.message),
+          { enableHighAccuracy: true, timeout: 10000 },
+        );
+      }
+
+      // ---------- search ----------
+      let lastSearch = '';
+      async function search(log = true) {
+        const params = new URLSearchParams({ q: lastSearch, limit: '15' });
+        return call('GET', `/v1/tracks?${params}`, { log });
+      }
+      $('s-form').onsubmit = async (event) => {
+        event.preventDefault();
+        if (!needUser()) return;
+        lastSearch = $('s-q').value;
+        const res = await search();
+        const list = $('s-results');
+        list.replaceChildren();
+        if (res.status !== 200) return;
+        for (const track of res.data.tracks) {
+          list.append(
+            el(
+              'li',
+              {},
+              cover(track),
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, track.title),
+                el('small', {}, track.artist),
+              ),
+              el('span', { className: 'tag' }, fmtTime(track.durationMs)),
+              el('button', {
+                type: 'button',
+                className: 'small',
+                textContent: '▶',
+                title: 'Écouter (GET …/stream)',
+                onclick: () => preview(track),
+              }),
+              el('button', {
+                type: 'button',
+                className: 'small primary',
+                textContent: '+ Proposer',
+                onclick: () => propose(track),
+              }),
+            ),
+          );
+        }
+        if (res.data.tracks.length === 0)
+          list.append(el('li', { className: 'empty' }, 'Aucun résultat.'));
+      };
+
+      async function streamUrl(trackId) {
+        const res = await call('GET', `/v1/tracks/${encodeURIComponent(trackId)}/stream`);
+        return res.status === 200 ? res.data.url : null;
+      }
+
+      async function preview(track) {
+        const url = await streamUrl(track.id);
+        if (!url) return;
+        const audio = $('s-preview');
+        audio.hidden = false;
+        audio.src = url;
+        audio.play().catch((err) => note('Le navigateur refuse de lire ce flux', err.message));
+      }
+
+      // Silent calls, one summary line: 31 entries would hide everything else
+      $('s-burst').onclick = async () => {
+        if (!needUser()) return;
+        lastSearch = $('s-q').value || 'lofi';
         const statuses = [];
         for (let i = 0; i < 31; i++) {
-          const res = await call('GET', searchUrl(), { log: false });
+          const res = await search(false);
           statuses.push(res.status);
           if (res.status === 429) break;
         }
@@ -1200,76 +1788,301 @@
             [
               'lecture',
               first429 >= 0
-                ? `Bloqué à la requête n°${first429 + 1}. Les recherches déjà faites dans la fenêtre comptent aussi. Un autre utilisateur n'est pas touché.`
+                ? `Bloqué à la requête n°${first429 + 1} (les recherches déjà faites dans la fenêtre comptent).`
                 : 'Jamais bloqué : la limite est plus haute que prévu ?',
             ],
           ],
         });
       };
 
-      // ---------- tabs ----------
-      // One feature on screen at a time; the last tab opened is remembered in this browser
-      const TABS = ['post', 'get', 'patch', 'delete', 'members', 'tracks', 'socket'];
-      function showTab(name) {
-        const tab = TABS.includes(name) ? name : 'post';
-        for (const button of document.querySelectorAll('[data-tab]')) {
-          button.setAttribute('aria-selected', String(button.dataset.tab === tab));
-        }
-        for (const panel of document.querySelectorAll('[data-panel]')) {
-          panel.hidden = panel.dataset.panel !== tab;
-        }
-        store.write('tab', tab);
-      }
-      for (const button of document.querySelectorAll('[data-tab]')) {
-        button.onclick = () => showTab(button.dataset.tab);
+      // ---------- playback ----------
+      async function loadPlayback() {
+        const res = await call('GET', roomUrl('/playback'));
+        state.playback = res.status === 200 ? res.data.playback : null;
+        renderNow();
+        syncLocalPlayer();
       }
 
-      // ---------- socket ----------
-      // One connection per user, so a broadcast can be seen arriving at several users at once
+      // Where the track is now: positionMs + (now - at) while playing
+      function positionNow() {
+        const pb = state.playback;
+        if (!pb) return 0;
+        return pb.positionMs + (pb.playing ? Date.now() - Date.parse(pb.at) : 0);
+      }
+
+      function renderNow() {
+        const item = state.queue?.playing;
+        const pb = state.playback;
+        const img = $('p-cover');
+        img.removeAttribute('src');
+        if (item?.track.coverUrl) img.src = item.track.coverUrl;
+        $('p-title').textContent = item ? item.track.title : 'Rien ne joue';
+        if (!item) {
+          $('p-sub').textContent = 'Le propriétaire lance la file avec « Suivant ».';
+          $('p-bar').style.width = '0';
+          return;
+        }
+        const duration = item.track.durationMs;
+        const pos = Math.min(positionNow(), duration ?? Infinity);
+        $('p-sub').textContent =
+          `${item.track.artist} · ${pb?.playing ? '▶ en lecture' : '⏸ en pause'} · ` +
+          `${fmtTime(pos)} / ${fmtTime(duration)} · ${item.votes} ♥`;
+        $('p-bar').style.width = duration ? `${(100 * pos) / duration}%` : '0';
+      }
+      setInterval(() => state.playback?.playing && renderNow(), 500);
+
+      function renderControls() {
+        const owner = isOwner();
+        for (const id of ['p-skip', 'p-play', 'p-pause', 'p-seek-btn']) $(id).disabled = !owner;
+        $('p-local').disabled = !owner;
+        if (!owner && $('p-local').checked) {
+          $('p-local').checked = false;
+          stopLocalPlayer();
+        }
+      }
+
+      async function skip() {
+        if (!needRoom()) return;
+        const res = await call('POST', roomUrl('/skip'));
+        if (res.status === 200) {
+          state.queue = res.data;
+          renderQueue();
+          await loadPlayback();
+        }
+      }
+
+      async function sendPlayback(playing, positionMs) {
+        if (!needRoom()) return;
+        const res = await call('PUT', roomUrl('/playback'), {
+          body: { playing, positionMs: Math.max(0, Math.round(positionMs)) },
+        });
+        if (res.status === 204) await loadPlayback();
+      }
+
+      $('p-skip').onclick = skip;
+      $('p-play').onclick = () => sendPlayback(true, positionNow());
+      $('p-pause').onclick = () => sendPlayback(false, positionNow());
+      $('p-seek-btn').onclick = () =>
+        sendPlayback(state.playback?.playing ?? false, Number($('p-seek').value) * 1000);
+
+      // The owner's phone, simulated: plays the sound and reports what the user does with it
+      const audio = $('p-audio');
+      let localItemId = null;
+      let applying = false; // true while we move the player ourselves: not a user action
+
+      async function syncLocalPlayer() {
+        if (!$('p-local').checked) return;
+        const pb = state.playback;
+        if (!pb) return stopLocalPlayer();
+        applying = true;
+        try {
+          if (pb.roomTrackId !== localItemId) {
+            const url = await streamUrl(pb.trackId);
+            if (!url) return;
+            localItemId = pb.roomTrackId;
+            audio.src = url;
+          }
+          const target = positionNow() / 1000;
+          if (Math.abs(audio.currentTime - target) > 2) audio.currentTime = target;
+          if (pb.playing && audio.paused)
+            await audio.play().catch((err) => note('Lecture refusée', err.message));
+          if (!pb.playing && !audio.paused) audio.pause();
+        } finally {
+          setTimeout(() => (applying = false), 300);
+        }
+      }
+
+      function stopLocalPlayer() {
+        audio.pause();
+        audio.removeAttribute('src');
+        localItemId = null;
+      }
+
+      $('p-local').onchange = () => {
+        audio.hidden = !$('p-local').checked;
+        if ($('p-local').checked) syncLocalPlayer();
+        else stopLocalPlayer();
+      };
+      audio.onplay = () => !applying && sendPlayback(true, audio.currentTime * 1000);
+      audio.onpause = () =>
+        !applying && !audio.ended && sendPlayback(false, audio.currentTime * 1000);
+      audio.onseeked = () => !applying && sendPlayback(!audio.paused, audio.currentTime * 1000);
+      // End of track: the phone asks for the next one, like the real app
+      audio.onended = () => isOwner() && skip();
+
+      // ---------- members ----------
+      async function loadMembers() {
+        const res = await call('GET', roomUrl('/members'));
+        state.members = res.status === 200 ? res.data.members : null;
+        renderMembers();
+      }
+
+      function renderMembers() {
+        const list = $('members');
+        list.replaceChildren();
+        if (state.room) {
+          list.append(
+            el(
+              'li',
+              {},
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, userName(state.room.ownerId)),
+                el('small', {}, 'propriétaire'),
+              ),
+            ),
+          );
+        }
+        for (const member of state.members ?? []) {
+          list.append(
+            el(
+              'li',
+              {},
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, member.displayName),
+                el('small', {}, `membre depuis ${fmtDate(member.joinedAt)}`),
+              ),
+              el('button', {
+                type: 'button',
+                className: 'small',
+                textContent: 'Retirer',
+                title: 'DELETE …/members/:userId',
+                onclick: () => removeMember(member.userId),
+              }),
+            ),
+          );
+        }
+        if (state.members?.length === 0)
+          list.append(el('li', { className: 'empty' }, 'Aucun invité.'));
+        renderInviteChoices();
+      }
+
+      function renderInviteChoices() {
+        const select = $('m-user');
+        const previous = select.value;
+        select.replaceChildren();
+        const members = new Set((state.members ?? []).map((m) => m.userId));
+        for (const user of state.users) {
+          if (user.id === state.room?.ownerId || members.has(user.id)) continue;
+          select.append(el('option', { value: user.id }, user.displayName));
+        }
+        if ([...select.options].some((o) => o.value === previous)) select.value = previous;
+      }
+
+      async function removeMember(userId) {
+        const res = await call('DELETE', roomUrl(`/members/${encodeURIComponent(userId)}`));
+        if (res.status === 204) await loadMembers();
+      }
+
+      $('m-reload').onclick = () => needRoom() && loadMembers();
+      $('m-invite').onclick = async () => {
+        if (!needRoom()) return;
+        const target = $('m-raw').value.trim() || $('m-user').value;
+        if (!target)
+          return note('Personne à inviter', 'Crée un autre utilisateur, ou colle un id.');
+        const res = await call('PUT', roomUrl(`/members/${encodeURIComponent(target)}`));
+        if (res.status === 204) await loadMembers();
+      };
+      $('m-leave').onclick = () => needRoom() && removeMember(state.activeId);
+
+      // ---------- discover ----------
+      $('b-form').onsubmit = async (event) => {
+        event.preventDefault();
+        if (!needUser()) return;
+        const minor = $('b-minor').value.trim();
+        const res = await call('GET', `/v1/rooms?beacon=${encodeURIComponent(minor)}`);
+        const box = $('b-result');
+        box.replaceChildren();
+        if (res.status !== 200) return;
+        const [room] = res.data.rooms;
+        if (!room) {
+          box.append(
+            el('p', { className: 'empty' }, `Aucune room publique avec le minor ${minor}.`),
+          );
+          return;
+        }
+        // What the phone shows when it picks up the beacon (screen B2)
+        box.append(
+          el(
+            'div',
+            { className: 'nearby' },
+            el('small', {}, '📡 Événement à proximité'),
+            el('h3', { style: 'margin: 2px 0' }, room.name),
+            el('p', { className: 'hint' }, room.description ?? 'Pas de description.'),
+            el(
+              'div',
+              { className: 'room-meta' },
+              policyTag(room),
+              el('small', {}, `par ${userName(room.ownerId)}`),
+            ),
+            el(
+              'div',
+              { className: 'actions' },
+              el('button', {
+                type: 'button',
+                className: 'primary',
+                textContent: 'Rejoindre',
+                onclick: () =>
+                  selectRoom(room.id)
+                    .then(() => showTab('queue'))
+                    .then(loadTab),
+              }),
+            ),
+          ),
+        );
+      };
+
+      // ---------- realtime ----------
+      // One connection per user: shows who receives each event
       const sockets = new Map();
-      const activeSocket = () => sockets.get(state.activeId) ?? null;
 
       function renderSockets() {
         const list = $('sockets');
         list.replaceChildren();
-        for (const [userId, socket] of sockets) {
-          const li = document.createElement('li');
-          li.className = userId === state.activeId ? 'active' : '';
-          const dot = document.createElement('span');
-          dot.className = `dot${socket.connected ? ' on' : ''}`;
-          const name = document.createElement('strong');
-          name.textContent = userName(userId);
-          const rooms = document.createElement('small');
-          rooms.textContent = socket.subscribed.size
-            ? `abonné à ${[...socket.subscribed].map((id) => roomName(id)).join(', ')}`
-            : socket.connected
-              ? 'connecté, aucune room'
-              : 'déconnecté';
-          li.append(dot, name, rooms);
-          li.onclick = () => selectUser(userId);
-          list.append(li);
+        for (const user of state.users) {
+          const socket = sockets.get(user.id);
+          const connected = socket?.connected ?? false;
+          list.append(
+            el(
+              'li',
+              { className: user.id === state.activeId ? 'active' : '' },
+              el('span', { className: `dot${connected ? ' on' : ''}` }),
+              el(
+                'div',
+                { className: 'grow' },
+                el('strong', {}, user.displayName),
+                el(
+                  'small',
+                  {},
+                  !connected
+                    ? 'déconnecté'
+                    : socket.subscribed.size
+                      ? `abonné à ${[...socket.subscribed].map(roomLabel).join(', ')}`
+                      : 'connecté, aucune room',
+                ),
+              ),
+              el('button', {
+                type: 'button',
+                className: 'small',
+                textContent: connected ? 'Déconnecter' : 'Connecter',
+                onclick: () =>
+                  connected ? socket.disconnect() : connect(user).then(autoSubscribe),
+              }),
+            ),
+          );
         }
-        const connected = activeSocket()?.connected ?? false;
-        $('sock-disconnect').disabled = !connected;
-        $('sub-btn').disabled = !connected;
-        $('unsub-btn').disabled = !connected;
-        $('msg-btn').disabled = !connected;
+        renderUsers();
       }
 
-      const roomName = (id) => state.rooms.find((r) => r.id === id)?.name ?? id.slice(0, 8);
+      const roomLabel = (id) =>
+        state.rooms.find((r) => r.id === id)?.name ??
+        (id === state.roomId && state.lastRoom?.name) ??
+        `${id.slice(0, 8)}…`;
 
-      const sockLog = (title, content, cls = 'sock', open = false) =>
-        logEntry({
-          cls,
-          badge: 'WS',
-          title,
-          sections: content === undefined ? [] : [['données', content]],
-          open,
-        });
-
-      $('sock-connect').onclick = async () => {
-        const user = activeUser();
-        if (!user) return alertNoUser();
+      async function connect(user) {
         sockets.get(user.id)?.disconnect();
         const token = await freshToken(user);
         if (token == null) return;
@@ -1281,68 +2094,161 @@
         });
         socket.subscribed = new Set();
         sockets.set(user.id, socket);
-        const who = user.displayName;
-        socket.on('connect', () => {
-          sockLog(`connect · ${who}`, { socketId: socket.id });
-          renderSockets();
+        await new Promise((resolve) => {
+          socket.on('connect', resolve);
+          socket.on('connect_error', (err) => {
+            sockLog(`connect_error · ${user.displayName}`, { message: err.message }, 's4');
+            resolve();
+          });
+          setTimeout(resolve, 3000);
         });
-        socket.on('connect_error', (err) => {
-          sockLog(`connect_error · ${who}`, { message: err.message }, 's4', true);
-          renderSockets();
-        });
-        socket.on('disconnect', (reason) => {
+        socket.on('disconnect', () => {
           socket.subscribed.clear();
-          sockLog(`disconnect · ${who}`, { reason });
           renderSockets();
         });
-        socket.onAny((event, ...args) => {
-          const data = args.length === 1 ? args[0] : args;
-          const from = data?.from ? ` de ${userName(data.from)}` : '';
-          sockLog(`← ${event}${from} · reçu par ${who}`, data, 'sock', true);
-        });
+        socket.onAny((event, data) => received(event, data, user));
         renderSockets();
-      };
-      $('sock-disconnect').onclick = () => activeSocket()?.disconnect();
+      }
 
-      $('sub-form').onsubmit = (event) => {
-        event.preventDefault();
-        const socket = activeSocket();
-        const roomId = $('sub-id').value.trim();
-        const who = activeUser().displayName;
-        sockLog(`→ subscribe · ${who}`, { roomId });
-        socket.emit('subscribe', { roomId }, (ack) => {
-          if (ack?.ok) socket.subscribed.add(roomId);
-          sockLog(`ack subscribe · ${who}`, ack, ack?.ok ? 'sock' : 's4', true);
-          renderSockets();
+      const sockLog = (title, content, cls = 'sock') =>
+        logEntry({
+          cls,
+          badge: 'WS',
+          title,
+          sections: content === undefined ? [] : [['données', content]],
+          open: cls !== 'sock',
         });
-      };
-      $('unsub-btn').onclick = () => {
-        const socket = activeSocket();
-        const roomId = $('sub-id').value.trim();
-        socket.emit('unsubscribe', { roomId });
-        socket.subscribed.delete(roomId);
-        sockLog(`→ unsubscribe · ${activeUser().displayName}`, { roomId });
+
+      // The same event reaches every subscriber: grouped into one log line
+      const pending = new Map();
+      function received(event, data, user) {
+        const key = `${event}|${JSON.stringify(data)}`;
+        if (!pending.has(key)) {
+          pending.set(key, { event, data, to: [] });
+          setTimeout(() => flush(key), 250);
+        }
+        pending.get(key).to.push(user.displayName);
+      }
+      function flush(key) {
+        const { event, data, to } = pending.get(key);
+        pending.delete(key);
+        const detail = data?.change ? ` (${data.change})` : '';
+        sockLog(`← ${event}${detail} · reçu par ${to.join(', ')}`, data);
+        if (data?.roomId === state.roomId) onRoomEvent(event, data);
+      }
+
+      // What the phone does on each event: reload what changed, as the active user
+      async function onRoomEvent(event, data) {
+        if (event === 'room.playback') {
+          state.playback = data.playback;
+          renderNow();
+          return syncLocalPlayer();
+        }
+        if (event !== 'room.changed') return;
+        if (data.change === 'deleted') {
+          note('La room courante vient d’être supprimée', 'room.changed « deleted » reçu.', 's2');
+          state.roomId = null;
+          state.room = null;
+          save();
+          stopLocalPlayer();
+          renderRoom();
+          return loadRooms();
+        }
+        if (data.change === 'queue' && tab === 'queue') return loadQueue();
+        if (data.change === 'members') {
+          // A new member may now subscribe; a removed one was kicked by the server
+          if (tab === 'members') await loadMembers();
+          return autoSubscribe();
+        }
+        return loadRoom();
+      }
+
+      async function subscribe(user, roomId) {
+        const socket = sockets.get(user.id);
+        if (!socket?.connected) return { ok: false, code: 'NOT_CONNECTED' };
+        const ack = await new Promise((resolve) => socket.emit('subscribe', { roomId }, resolve));
+        if (ack?.ok) socket.subscribed.add(roomId);
+        else socket.subscribed.delete(roomId);
+        return ack;
+      }
+
+      function unsubscribe(user, roomId) {
+        const socket = sockets.get(user.id);
+        socket?.emit('unsubscribe', { roomId });
+        socket?.subscribed.delete(roomId);
+      }
+
+      // Every connected user follows the current room only; one log line for all the acks
+      async function autoSubscribe() {
+        if (!$('rt-auto').checked || !state.roomId) return renderSockets();
+        const results = [];
+        for (const user of state.users) {
+          const socket = sockets.get(user.id);
+          if (!socket?.connected) continue;
+          for (const id of socket.subscribed) if (id !== state.roomId) unsubscribe(user, id);
+          const ack = await subscribe(user, state.roomId);
+          results.push(`${user.displayName} : ${ack?.ok ? 'ok' : ack?.code}`);
+        }
+        if (results.length) sockLog(`subscribe ${roomLabel(state.roomId)}`, results.join('\n'));
         renderSockets();
+      }
+
+      $('rt-auto').onchange = async () => {
+        store.write('rtAuto', $('rt-auto').checked);
+        if (!$('rt-auto').checked) return;
+        for (const user of state.users) if (!sockets.get(user.id)?.connected) await connect(user);
+        await autoSubscribe();
       };
 
-      $('msg-form').onsubmit = (event) => {
+      $('rt-sub-form').onsubmit = async (event) => {
         event.preventDefault();
-        const socket = activeSocket();
-        const payload = { roomId: $('sub-id').value.trim(), text: $('msg-text').value };
-        const who = activeUser().displayName;
-        sockLog(`→ dev:broadcast · ${who}`, payload);
-        socket.emit('dev:broadcast', payload, (ack) =>
-          sockLog(`ack dev:broadcast · ${who}`, ack, ack?.ok ? 'sock' : 's4', !ack?.ok),
+        if (!needUser()) return;
+        const user = activeUser();
+        if (!sockets.get(user.id)?.connected) await connect(user);
+        const roomId = $('rt-room').value.trim() || state.roomId;
+        const ack = await subscribe(user, roomId);
+        sockLog(
+          `subscribe ${roomLabel(roomId)} · ${user.displayName}`,
+          ack,
+          ack?.ok ? 'sock' : 's4',
         );
-        $('msg-text').value = '';
+        renderSockets();
+      };
+      $('rt-unsub').onclick = () => {
+        if (!needUser()) return;
+        const roomId = $('rt-room').value.trim() || state.roomId;
+        unsubscribe(activeUser(), roomId);
+        sockLog(`unsubscribe ${roomLabel(roomId)} · ${activeUser().displayName}`);
+        renderSockets();
+      };
+      $('rt-msg-form').onsubmit = (event) => {
+        event.preventDefault();
+        if (!needRoom()) return;
+        const socket = sockets.get(state.activeId);
+        if (!socket?.connected)
+          return note('Pas connecté', 'Connecte l’utilisateur actif ci-dessus.');
+        const payload = {
+          roomId: $('rt-room').value.trim() || state.roomId,
+          text: $('rt-msg').value,
+        };
+        socket.emit('dev:broadcast', payload, (ack) => {
+          if (!ack?.ok) sockLog(`dev:broadcast refusé · ${activeUser().displayName}`, ack, 's4');
+        });
+        $('rt-msg').value = '';
       };
 
-      $('clear-log').onclick = () => $('log').replaceChildren();
-
-      showTab(store.read('tab', 'post'));
-      renderUsers();
-      renderRooms();
-      renderSockets();
+      // ---------- start ----------
+      (async () => {
+        $('rt-auto').checked = store.read('rtAuto', true);
+        showTab(tab);
+        renderUsers();
+        renderRoom();
+        if ($('rt-auto').checked) {
+          for (const user of [...state.users]) await connect(user);
+        }
+        await loadRooms();
+        if (state.roomId) await selectRoom(state.roomId);
+      })();
     </script>
   </body>
 </html>
