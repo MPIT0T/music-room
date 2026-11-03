@@ -3,6 +3,8 @@ import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/auth/auth_service.dart';
+import 'package:music_room/auth/server_settings_dialog.dart';
+import 'package:music_room/core/services.dart';
 import 'package:music_room/auth/google_sign_in_button.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -29,6 +31,15 @@ class WelcomeScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: 'Server address',
+            icon: const Icon(Icons.settings),
+            onPressed: () => showServerSettingsDialog(context),
+          ),
+        ],
+      ),
       body: AppScreenBody(
         fillHeight: true,
         maxWidth: 480,
