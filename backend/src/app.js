@@ -15,6 +15,7 @@ import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
 import roomsRoutes from './routes/rooms.js';
 import roomMembersRoutes from './routes/room-members.js';
+import roomTracksRoutes from './routes/room-tracks.js';
 import tracksRoutes from './routes/tracks.js';
 import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
@@ -93,7 +94,7 @@ export async function buildApp({
   await app.register(fastifyCors, {
     origin: cors.origins.length > 0 ? cors.origins : false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Location'],
     maxAge: 600,
   });
 
@@ -122,6 +123,7 @@ export async function buildApp({
   await app.register(usersRoutes);
   await app.register(roomsRoutes);
   await app.register(roomMembersRoutes);
+  await app.register(roomTracksRoutes);
   await app.register(tracksRoutes);
   if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);

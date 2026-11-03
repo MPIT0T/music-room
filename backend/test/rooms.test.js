@@ -57,6 +57,7 @@ test('POST /v1/rooms with only a name creates a public room owned by the caller'
   assert.equal(room.visibility, 'public');
   assert.equal(room.accessPolicy, 'everyone');
   assert.equal(room.window, null);
+  assert.equal(room.place, null);
   assert.equal(room.beaconMinor, null);
   assert.equal(room.version, 0);
   assert.equal(res.headers.etag, '"0"');
@@ -66,20 +67,22 @@ test('POST /v1/rooms with only a name creates a public room owned by the caller'
   assert.deepEqual(row, { owner_id: users.owner.id, name: 'Soirée du samedi' });
 });
 
-test('POST /v1/rooms stores every field, window dates included', async () => {
+test('POST /v1/rooms stores every field, window dates and place included', async () => {
   const res = await createRoom(users.owner, {
     name: 'Concert',
     description: 'Rock only',
     visibility: 'private',
-    accessPolicy: 'time_window',
+    accessPolicy: 'place_time',
     window: { start: '2026-11-01T20:00:00+01:00', end: '2026-11-02T02:00:00+01:00' },
+    place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
   });
 
   assert.equal(res.statusCode, 201);
   const room = res.json();
   assert.equal(room.description, 'Rock only');
   assert.equal(room.visibility, 'private');
-  assert.equal(room.accessPolicy, 'time_window');
+  assert.equal(room.accessPolicy, 'place_time');
+  assert.deepEqual(room.place, { lat: 45.7578, lng: 4.832, radiusM: 200 });
   // Sent with an offset, stored and returned in UTC
   assert.deepEqual(room.window, {
     start: '2026-11-01T19:00:00.000Z',
@@ -95,7 +98,11 @@ test('POST /v1/rooms refuses invalid bodies with 400 naming the field', async ()
     [{ name: 'evil\u202Eroom' }, 'name'],
     [{ name: 'Room', visibility: 'hidden' }, 'visibility'],
     [{ name: 'Room', accessPolicy: 'geo_time' }, 'accessPolicy'],
-    [{ name: 'Room', accessPolicy: 'time_window' }, 'window'],
+    [{ name: 'Room', accessPolicy: 'time_window' }, 'accessPolicy'],
+    [{ name: 'Room', accessPolicy: 'place_time' }, 'window'],
+    [{ name: 'Room', accessPolicy: 'place_time' }, 'place'],
+    [{ name: 'Room', place: { lat: 91, lng: 0, radiusM: 100 } }, 'place.lat'],
+    [{ name: 'Room', place: { lat: 0, lng: 0, radiusM: 1 } }, 'place.radiusM'],
     [{ name: 'Room', window: { start: 'tomorrow', end: 'later' } }, 'window.start'],
     [
       {
@@ -155,6 +162,121 @@ test('GET /v1/rooms/:id shows a private room to its owner and invited users only
   }
 });
 
+// GET /v1/rooms: other test files write rooms at the same time, so we check our own rooms only
+
+const listRooms = (user, query = '') =>
+  app.inject({ url: `/v1/rooms${query}`, headers: user ? auth(user) : {} });
+const idsOf = (res) => res.json().rooms.map((room) => room.id);
+// Random per run: beacon_minor is unique across all rooms in the database
+const minor = () => 1000 + Math.floor(Math.random() * 64_000);
+
+test('GET /v1/rooms: public rooms, and private ones only for their owner and members', async () => {
+  const open = (await createRoom(users.owner, { name: 'Listed' })).json();
+  const secret = (
+    await createRoom(users.owner, { name: 'Listed secret', visibility: 'private' })
+  ).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    secret.id,
+    users.guest.id,
+  ]);
+
+  for (const user of [users.owner, users.guest]) {
+    const ids = idsOf(await listRooms(user, '?limit=50'));
+    assert.ok(ids.includes(open.id) && ids.includes(secret.id), 'owner and member see both');
+  }
+  const ids = idsOf(await listRooms(users.stranger, '?limit=50'));
+  assert.ok(ids.includes(open.id));
+  assert.ok(!ids.includes(secret.id), 'a private room is never listed to a stranger');
+});
+
+test('GET /v1/rooms: newest first, limit respected and checked', async () => {
+  const res = await listRooms(users.stranger, '?limit=3');
+  assert.equal(res.statusCode, 200);
+  const dates = res.json().rooms.map((room) => room.createdAt);
+  assert.ok(dates.length <= 3);
+  assert.deepEqual(dates, [...dates].sort().reverse());
+
+  for (const query of ['?limit=0', '?limit=51', '?limit=abc']) {
+    assertProblem(await listRooms(users.stranger, query), 400, 'validation_failed');
+  }
+  assertProblem(await listRooms(null), 401, 'unauthorized');
+});
+
+test('GET /v1/rooms?beacon= finds the public room with that minor, else an empty list', async () => {
+  const beacon = minor();
+  const room = (
+    await createRoom(users.owner, { name: 'Beacon party', beaconMinor: beacon })
+  ).json();
+  assert.equal(room.beaconMinor, beacon);
+
+  const res = await listRooms(users.stranger, `?beacon=${beacon}`);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), { rooms: [room] });
+
+  // An unknown beacon (a neighbour's party, another app) is not an error
+  const other = beacon === 1000 ? 1001 : beacon - 1;
+  const [[taken]] = await app.db.query('SELECT COUNT(*) AS n FROM rooms WHERE beacon_minor = ?', [
+    other,
+  ]);
+  if (Number(taken.n) === 0) {
+    assert.deepEqual((await listRooms(users.stranger, `?beacon=${other}`)).json(), { rooms: [] });
+  }
+  for (const query of ['?beacon=-1', '?beacon=65536', '?beacon=abc']) {
+    assertProblem(await listRooms(users.stranger, query), 400, 'validation_failed');
+  }
+});
+
+test('a beacon never reveals a private room, not even to its members', async () => {
+  const beacon = minor();
+  const room = (
+    await createRoom(users.owner, {
+      name: 'Hidden beacon',
+      visibility: 'private',
+      beaconMinor: beacon,
+    })
+  ).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    room.id,
+    users.guest.id,
+  ]);
+
+  for (const user of [users.stranger, users.guest, users.owner]) {
+    assert.deepEqual((await listRooms(user, `?beacon=${beacon}`)).json(), { rooms: [] });
+  }
+});
+
+test('beaconMinor: one room per minor (409 beacon_taken), the owner sets or clears it', async () => {
+  const beacon = minor();
+  const first = (await createRoom(users.owner, { name: 'First', beaconMinor: beacon })).json();
+
+  assertProblem(
+    await createRoom(users.guest, { name: 'Copycat', beaconMinor: beacon }),
+    409,
+    'beacon_taken',
+  );
+  const second = (await createRoom(users.owner, { name: 'Second' })).json();
+  assertProblem(
+    await patchRoom(users.owner, second.id, { beaconMinor: beacon }, '"0"'),
+    409,
+    'beacon_taken',
+  );
+
+  // Cleared on the first room, the minor is free for the second one
+  const cleared = await patchRoom(users.owner, first.id, { beaconMinor: null }, '"0"');
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.json().beaconMinor, null);
+  const moved = await patchRoom(users.owner, second.id, { beaconMinor: beacon }, '"0"');
+  assert.equal(moved.statusCode, 200);
+  assert.deepEqual(idsOf(await listRooms(users.stranger, `?beacon=${beacon}`)), [second.id]);
+
+  // Only the owner sets it: someone else cannot take the beacon off the room
+  assertProblem(
+    await patchRoom(users.guest, second.id, { beaconMinor: null }, '"1"'),
+    403,
+    'forbidden',
+  );
+});
+
 const patchRoom = (user, id, payload, ifMatch) =>
   app.inject({
     method: 'PATCH',
@@ -180,7 +302,7 @@ test('PATCH /v1/rooms/:id changes only the fields sent and bumps the version', a
   assert.deepEqual((await getRoom(users.owner, created.id)).json(), room);
 });
 
-test('PATCH /v1/rooms/:id can clear the description and switch to a time window', async () => {
+test('PATCH /v1/rooms/:id can clear the description and switch to place_time', async () => {
   const created = (await createRoom(users.owner, { name: 'Party', description: 'x' })).json();
 
   const res = await patchRoom(
@@ -188,15 +310,17 @@ test('PATCH /v1/rooms/:id can clear the description and switch to a time window'
     created.id,
     {
       description: null,
-      accessPolicy: 'time_window',
+      accessPolicy: 'place_time',
       window: { start: '2026-12-31T21:00:00Z', end: '2027-01-01T03:00:00Z' },
+      place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
     },
     '"0"',
   );
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().description, null);
-  assert.equal(res.json().accessPolicy, 'time_window');
+  assert.equal(res.json().accessPolicy, 'place_time');
+  assert.deepEqual(res.json().place, { lat: 45.7578, lng: 4.832, radiusM: 200 });
   assert.deepEqual(res.json().window, {
     start: '2026-12-31T21:00:00.000Z',
     end: '2027-01-01T03:00:00.000Z',
@@ -272,15 +396,18 @@ test('PATCH /v1/rooms/:id checks the rules on the room as it would be stored', a
   const timed = (
     await createRoom(users.owner, {
       name: 'Timed',
-      accessPolicy: 'time_window',
+      accessPolicy: 'place_time',
       window: { start: '2026-11-01T20:00:00Z', end: '2026-11-01T23:00:00Z' },
+      place: { lat: 45.7578, lng: 4.832, radiusM: 200 },
     })
   ).json();
   const plain = (await createRoom(users.owner, { name: 'Plain' })).json();
 
   const cases = [
     [timed.id, { window: null }, 'window'],
-    [plain.id, { accessPolicy: 'time_window' }, 'window'],
+    [timed.id, { place: null }, 'place'],
+    [plain.id, { accessPolicy: 'place_time' }, 'window'],
+    [plain.id, { accessPolicy: 'place_time' }, 'place'],
     [
       plain.id,
       { window: { start: '2026-11-01T20:00:00Z', end: '2026-11-01T19:00:00Z' } },
@@ -307,7 +434,7 @@ test('PATCH /v1/rooms/:id checks the rules on the room as it would be stored', a
 
 test('updateRoom writes only if the version is still the expected one, even in a race', async () => {
   const created = (await createRoom(users.owner, { name: 'Row race' })).json();
-  const asStored = { ...created, window: null };
+  const asStored = { ...created, window: null, place: null };
 
   // Five connections race for the same row: the version check in the UPDATE picks one winner
   const results = await Promise.all(

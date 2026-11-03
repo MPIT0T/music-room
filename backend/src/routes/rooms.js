@@ -1,18 +1,27 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { canManage } from '../rooms/access.js';
 import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
-import { deleteRoom, insertRoom, updateRoom } from '../rooms/repo.js';
+import { clearPlayback } from '../rooms/playback.js';
+import {
+  deleteRoom,
+  findRoomByBeacon,
+  insertRoom,
+  listVisibleRooms,
+  updateRoom,
+} from '../rooms/repo.js';
 import {
   createRoomBody,
   ifMatchHeaders,
+  listRoomsQuery,
   patchRoomBody,
   roomParams,
   roomResponse,
   roomRuleIssues,
+  roomsResponse,
 } from '../rooms/schemas.js';
 
 const etag = (room) => `"${room.version}"`;
@@ -45,10 +54,15 @@ export default async function roomsRoutes(app) {
   const createSchema = {
     tags: ['rooms'],
     summary: 'Create a room',
-    description: 'The caller becomes the owner. Returns the room with its ETag.',
+    description:
+      'The caller becomes the owner. Returns the room with its ETag. `visibility`: who finds ' +
+      'the room (private: owner and members only). `accessPolicy`: who proposes and votes ' +
+      '(everyone, invited members, or place_time: people inside `place` during `window`, ' +
+      'both required, who send their position in X-Location). The owner is never restricted. ' +
+      '409 beacon_taken if another room already uses `beaconMinor`.',
     security: [{ bearerAuth: [] }],
     body: createRoomBody,
-    response: { 201: roomResponse },
+    response: { 201: roomResponse, ...problems(400, 401, 409) },
   };
 
   app.post('/v1/rooms', { schema: createSchema }, async (request, reply) => {
@@ -60,6 +74,27 @@ export default async function roomsRoutes(app) {
       .send(room);
   });
 
+  const listSchema = {
+    tags: ['rooms'],
+    summary: 'Find rooms',
+    description:
+      'Public rooms, plus the private ones the caller owns or was invited to, newest first. ' +
+      'With `beacon`, the minor of an iBeacon the phone picked up: only the public room ' +
+      'with that minor (a private room is never revealed by a beacon), or an empty list.',
+    security: [{ bearerAuth: [] }],
+    querystring: listRoomsQuery,
+    response: { 200: roomsResponse, ...problems(400, 401) },
+  };
+
+  app.get('/v1/rooms', { schema: listSchema }, async (request) => {
+    const { beacon, limit } = request.query;
+    if (beacon !== undefined) {
+      const room = await findRoomByBeacon(app.db, beacon);
+      return { rooms: room ? [room] : [] };
+    }
+    return { rooms: await listVisibleRooms(app.db, request.userId, limit) };
+  });
+
   const getSchema = {
     tags: ['rooms'],
     summary: 'Read a room',
@@ -68,7 +103,7 @@ export default async function roomsRoutes(app) {
       'invited users only. Anyone else gets the same 404 as for a room that does not exist.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: roomResponse },
+    response: { 200: roomResponse, ...problems(401, 404) },
   };
 
   app.get('/v1/rooms/:id', { schema: getSchema }, async (request, reply) => {
@@ -82,12 +117,13 @@ export default async function roomsRoutes(app) {
     summary: 'Edit a room',
     description:
       'Owner only. Send only the fields to change, and the ETag from GET in If-Match: ' +
-      '428 without it, 412 if the room changed since. Returns the room with its new ETag.',
+      '428 without it, 412 if the room changed since. Returns the room with its new ETag. ' +
+      '409 beacon_taken if another room already uses `beaconMinor`.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
     headers: ifMatchHeaders,
     body: patchRoomBody,
-    response: { 200: roomResponse },
+    response: { 200: roomResponse, ...problems(400, 401, 403, 404, 409, 412, 428) },
   };
 
   app.patch('/v1/rooms/:id', { schema: patchSchema }, async (request, reply) => {
@@ -119,7 +155,7 @@ export default async function roomsRoutes(app) {
       'see it but is not the owner.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 204: z.null().describe('Room deleted') },
+    response: { 204: z.null().describe('Room deleted'), ...problems(401, 403, 404) },
   };
 
   app.delete('/v1/rooms/:id', { schema: deleteSchema }, async (request, reply) => {
@@ -130,6 +166,7 @@ export default async function roomsRoutes(app) {
     const { room } = visible;
     const deleted = await deleteRoom(app.db, room.id, room.ownerId);
     if (!deleted) throw new HttpProblem(404, 'not_found');
+    await clearPlayback(app.redis, room.id);
 
     emitRoomChanged(app.io, { ...room, version: room.version + 1 }, 'deleted');
     closeRoomChannel(app.io, room.id);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpProblem } from '../errors.js';
+import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { canManage, canRemoveMember } from '../rooms/access.js';
 import { emitRoomChanged, removeUserFromChannel } from '../rooms/events.js';
@@ -24,7 +24,7 @@ export default async function roomMembersRoutes(app) {
       'A private room answers 404 to anyone who is neither owner nor member.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
-    response: { 200: membersResponse },
+    response: { 200: membersResponse, ...problems(401, 404) },
   };
 
   app.get('/v1/rooms/:id/members', { schema: listSchema }, async (request) => {
@@ -41,7 +41,10 @@ export default async function roomMembersRoutes(app) {
       'for the owner. Subscribers receive `room.changed` with `change: "members"`.',
     security: [{ bearerAuth: [] }],
     params: memberParams,
-    response: { 204: z.null().describe('The user is a member') },
+    response: {
+      204: z.null().describe('The user is a member'),
+      ...problems(400, 401, 403, 404, 409),
+    },
   };
 
   app.put('/v1/rooms/:id/members/:userId', { schema: putSchema }, async (request, reply) => {
@@ -66,7 +69,10 @@ export default async function roomMembersRoutes(app) {
       'private room stops receiving its real-time events at once.',
     security: [{ bearerAuth: [] }],
     params: memberParams,
-    response: { 204: z.null().describe('The user is not a member') },
+    response: {
+      204: z.null().describe('The user is not a member'),
+      ...problems(400, 401, 403, 404),
+    },
   };
 
   app.delete('/v1/rooms/:id/members/:userId', { schema: deleteSchema }, async (request, reply) => {
