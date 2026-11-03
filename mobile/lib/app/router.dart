@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/core/services.dart';
 import 'package:music_room/ui/screens/screens.dart';
@@ -32,7 +33,14 @@ abstract final class AppRouterConfig {
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
-        path: '/room/:id',
+        path: '/rooms/new',
+        pageBuilder: (context, state) => const MaterialPage(
+          fullscreenDialog: true,
+          child: CreateRoomScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/rooms/:id',
         builder: (context, state) {
           return const PlayerScreen();
         },
@@ -52,7 +60,7 @@ abstract final class AppRouterConfig {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/my-rooms',
+                path: '/rooms',
                 builder: (context, state) => const MyRoomsScreen(),
               ),
             ],

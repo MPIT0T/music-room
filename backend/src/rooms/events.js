@@ -8,6 +8,11 @@ export function emitRoomChanged(io, room, change) {
   });
 }
 
+// playback is null when nothing plays
+export function emitPlayback(io, roomId, playback) {
+  io?.to(channel(roomId)).emit('room.playback', { roomId, playback });
+}
+
 export function closeRoomChannel(io, roomId) {
   io?.in(channel(roomId)).socketsLeave(channel(roomId));
 }

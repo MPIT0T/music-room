@@ -15,12 +15,15 @@ import { passwords as defaultPasswords } from './auth/passwords.js';
 import usersRoutes from './routes/users.js';
 import roomsRoutes from './routes/rooms.js';
 import roomMembersRoutes from './routes/room-members.js';
+import roomTracksRoutes from './routes/room-tracks.js';
 import tracksRoutes from './routes/tracks.js';
 import playgroundRoutes from './dev/playground.js';
 import sessionsRoutes from './routes/sessions.js';
 import friendsRoutes from './routes/friends.js';
 import passwordsRoutes from './routes/passwords.js';
 import emailPagesRoutes from './routes/email-pages.js';
+import meRoutes from './routes/me.js';
+import genresRoutes from './routes/genres.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { limits as defaultLimits } from './security/limits.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -93,7 +96,7 @@ export async function buildApp({
   await app.register(fastifyCors, {
     origin: cors.origins.length > 0 ? cors.origins : false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Location'],
     maxAge: 600,
   });
 
@@ -122,12 +125,15 @@ export async function buildApp({
   await app.register(usersRoutes);
   await app.register(roomsRoutes);
   await app.register(roomMembersRoutes);
+  await app.register(roomTracksRoutes);
   await app.register(tracksRoutes);
   if (devTools) await app.register(playgroundRoutes);
   await app.register(sessionsRoutes);
   await app.register(friendsRoutes);
   await app.register(passwordsRoutes);
   await app.register(emailPagesRoutes);
+  await app.register(meRoutes);
+  await app.register(genresRoutes);
 
   return app;
 }
