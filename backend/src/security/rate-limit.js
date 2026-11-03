@@ -46,6 +46,14 @@ export function createRateLimiter(redis, { log } = {}) {
         return { allowed: true };
       }),
 
+    // Gives back one attempt that turned out legitimate (a successful login on a shared IP)
+    refund: (rule, value) =>
+      guarded(rule, async () => {
+        const key = keyOf(rule, value);
+        if ((await redis.decr(key)) <= 0) await redis.del(key);
+        return { allowed: true };
+      }),
+
     // Reads without counting: lets a route count only failures (login)
     peek: (rule, value) =>
       guarded(rule, async () => {
