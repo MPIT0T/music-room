@@ -1,15 +1,18 @@
-export async function areFriends(db, userId, otherId) {
+export async function areFriends(db, userId, otherId, { lock = false } = {}) {
   if (userId === otherId) {
     return false; // Can't be friends with yourself
   }
-  const [rows] = await db.query(
-    `
-    SELECT 1 FROM friendships
-    WHERE user_a = LEAST(CAST(? AS UUID), CAST(? AS UUID))
-      AND user_b = GREATEST(CAST(? AS UUID), CAST(? AS UUID))
-      AND status = 'accepted'`,
-    [userId, otherId, userId, otherId],
-  );
+  const sql = lock
+    ? `SELECT 1 FROM friendships
+     WHERE user_a = LEAST(CAST(? AS UUID), CAST(? AS UUID))
+       AND user_b = GREATEST(CAST(? AS UUID), CAST(? AS UUID))
+       AND status = 'accepted' 
+     FOR UPDATE`
+    : `SELECT 1 FROM friendships
+     WHERE user_a = LEAST(CAST(? AS UUID), CAST(? AS UUID))
+       AND user_b = GREATEST(CAST(? AS UUID), CAST(? AS UUID))
+       AND status = 'accepted'`;
+  const [rows] = await db.query(sql, [userId, otherId, userId, otherId]);
   return rows.length > 0;
 }
 
