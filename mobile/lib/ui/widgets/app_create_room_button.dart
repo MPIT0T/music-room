@@ -8,7 +8,7 @@ class AppCreateRoomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.add_rounded),
-      onPressed: () => context.push('rooms/new'),
+      onPressed: () => context.push('/rooms/new'),
     );
   }
 }

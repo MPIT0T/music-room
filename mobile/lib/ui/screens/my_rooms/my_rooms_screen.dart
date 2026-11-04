@@ -4,6 +4,7 @@ import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/data/models/room.dart';
 import 'package:music_room/core/rooms_service.dart';
 import 'package:music_room/core/services.dart';
+import 'package:go_router/go_router.dart';
 
 class MyRoomsScreen extends StatefulWidget {
   const MyRoomsScreen({super.key});
@@ -55,6 +56,7 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
         child: Column(
           crossAxisAlignment: .stretch,
           children: [
+            Text(_error ?? 'No Error'),
             SegmentedButton(
               segments: [
                 ButtonSegment(value: RoomSelection.mine, label: Text('Mine')),
@@ -72,11 +74,14 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
             ),
             const SizedBox(height: Space.md),
             Expanded(
-              child: ListView.builder(
+              child: ListView.separated(
                 itemCount: _rooms.length,
-                itemBuilder: (context, index) {
-                  return ListTile(title: Text(_rooms[index].name));
-                },
+                itemBuilder: (context, index) => AppRoomCard(
+                  room: _rooms[index],
+                  onTap: () => context.push('/rooms/${_rooms[index].id}'),
+                ),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: Space.cardGap),
               ),
             ),
           ],

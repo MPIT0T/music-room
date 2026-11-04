@@ -35,7 +35,7 @@ class AppScreenBody extends StatelessWidget {
         child: maxWidth == null
             ? content
             : ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+                constraints: BoxConstraints(maxWidth: maxWidth!),
                 child: content,
               ),
       ),
