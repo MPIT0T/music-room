@@ -26,6 +26,9 @@ class Room {
     this.description,
     this.windowStart,
     this.windowEnd,
+    this.placeLat,
+    this.placeLon,
+    this.placeRadius,
   });
 
   final int version;
@@ -40,9 +43,13 @@ class Room {
   final String? description;
   final DateTime? windowStart;
   final DateTime? windowEnd;
+  final double? placeLat;
+  final double? placeLon;
+  final int? placeRadius;
 
   factory Room.fromJson(Map<String, dynamic> j) {
     final window = j['window'] as Map<String, dynamic>?;
+    final place = j['place'] as Map<String, dynamic>?;
 
     return Room(
       id: j['id'] as String,
@@ -57,6 +64,9 @@ class Room {
       windowEnd: window == null
           ? null
           : DateTime.parse(window['end'] as String),
+      placeLat: place == null ? null : (place['lat'] as num).toDouble(),
+      placeLon: place == null ? null : (place['lng'] as num).toDouble(),
+      placeRadius: place == null ? null : place['radiusM'] as int,
       beaconMinor: j['beaconMinor'] as int?,
       version: j['version'] as int,
       createdAt: DateTime.parse(j['createdAt']),
@@ -64,22 +74,3 @@ class Room {
     );
   }
 }
-
-/*
-{
-  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "ownerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "name": "string",
-  "description": "string",
-  "visibility": "public",
-  "accessPolicy": "everyone",
-  "window": {
-    "start": "2026-11-02T12:57:57.901Z",
-    "end": "2026-11-02T12:57:57.901Z"
-  },
-  "beaconMinor": 9007199254740991,
-  "version": 9007199254740991,
-  "createdAt": "2026-11-02T12:57:57.901Z",
-  "updatedAt": "2026-11-02T12:57:57.901Z"
-}
-*/
