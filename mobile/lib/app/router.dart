@@ -81,6 +81,14 @@ abstract final class AppRouterConfig {
                       ),
                     ],
                   ),
+                  GoRoute(
+                    path: 'edit-profile',
+                    builder: (context, state) => const EditProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
+                  ),
                 ],
               ),
             ],
