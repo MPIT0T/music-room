@@ -15,15 +15,25 @@ const tracks = {};
 const sent = [];
 const fakeIo = {
   to: (channel) => ({ emit: (event, data) => sent.push({ to: channel, event, data }) }),
-  in: (target) => ({ socketsLeave: (channel) => sent.push({ in: target, leave: channel }) }),
+  in: (target) => ({
+    socketsLeave: (channel) => sent.push({ in: target, leave: channel }),
+    // Every device is connected here: offline players are tested in delegation.test.js
+    fetchSockets: async () => [{ id: 'socket' }],
+  }),
 };
 
 async function createUser(name) {
   const [[row]] = await app.db.query('INSERT INTO users (display_name) VALUES (?) RETURNING id', [
     `queue-${RUN}-${name}`,
   ]);
-  const token = await app.tokens.signAccessToken({ userId: row.id, deviceId: randomUUID() });
-  return { id: row.id, token };
+  // A real devices row: the playing device of a room is looked up for delegations
+  const deviceId = randomUUID();
+  await app.db.query(
+    "INSERT INTO devices (id, user_id, name, platform) VALUES (?, ?, 'test', 'web')",
+    [deviceId, row.id],
+  );
+  const token = await app.tokens.signAccessToken({ userId: row.id, deviceId });
+  return { id: row.id, token, deviceId };
 }
 
 async function createTrack(name) {
@@ -50,7 +60,11 @@ beforeEach(() => {
 after(async () => {
   const ids = [...Object.values(users), ...voters].map((user) => user.id);
   const [rooms] = await app.db.query('SELECT id FROM rooms WHERE owner_id IN (?)', [ids]);
-  if (rooms.length) await app.redis.del(rooms.map((room) => `playback:${room.id}`));
+  if (rooms.length) {
+    await app.redis.del(
+      rooms.flatMap((room) => [`playback:${room.id}`, `playback-device:${room.id}`]),
+    );
+  }
   // rooms first: their room_tracks and votes go with them (ON DELETE CASCADE)
   await app.db.query('DELETE FROM rooms WHERE owner_id IN (?)', [ids]);
   await app.db.query('DELETE FROM tracks WHERE provider_track_id LIKE ?', [`queue-${RUN}-%`]);
@@ -379,13 +393,14 @@ test('skip: the most voted track starts, the previous one is played', async () =
   assert.deepEqual((await skip(users.owner, room.id)).json(), { playing: null, queue: [] });
 });
 
-test('only the owner skips: 403 for a member or a stranger', async () => {
+test('without a delegation, a member or a stranger cannot skip (403)', async () => {
   const room = await createRoom(users.owner, { name: 'Owner skips' });
   await fill(room, 'a');
   await invite(users.owner, room.id, users.guest.id);
 
-  assertProblem(await skip(users.guest, room.id), 403, 'forbidden');
-  assertProblem(await skip(users.stranger, room.id), 403, 'forbidden');
+  // No device plays yet: nobody but the owner can act
+  assertProblem(await skip(users.guest, room.id), 403, 'no_active_device');
+  assertProblem(await skip(users.stranger, room.id), 403, 'no_active_device');
   assert.equal((await getQueue(users.owner, room.id)).json().playing, null);
 });
 
@@ -415,7 +430,7 @@ test('nothing plays: playback null, and the owner cannot report a state (409)', 
 
   const res = await getPlayback(users.stranger, room.id);
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { playback: null });
+  assert.deepEqual(res.json(), { playback: null, activeDeviceId: null, canControl: false });
   assertProblem(
     await putPlayback(users.owner, room.id, { playing: true, positionMs: 0 }),
     409,
@@ -483,13 +498,21 @@ test('a state left by the previous track does not leak to the next one', async (
   // Queue empty: nothing plays any more
   sent.length = 0;
   await skip(users.owner, room.id);
-  assert.deepEqual((await getPlayback(users.owner, room.id)).json(), { playback: null });
+  assert.deepEqual((await getPlayback(users.owner, room.id)).json(), {
+    playback: null,
+    activeDeviceId: users.owner.deviceId,
+    canControl: true,
+  });
   assert.deepEqual(playbackEvents(), [
-    { to: `room:${room.id}`, event: 'room.playback', data: { roomId: room.id, playback: null } },
+    {
+      to: `room:${room.id}`,
+      event: 'room.playback',
+      data: { roomId: room.id, playback: null, activeDeviceId: users.owner.deviceId },
+    },
   ]);
 });
 
-test('only the owner reports playback: 403 for a member, 404 in a hidden room', async () => {
+test('without a delegation, a member cannot report playback (403), 404 in a hidden room', async () => {
   const room = await createRoom(users.owner, { name: 'Remote', visibility: 'private' });
   await fill(room, 'a');
   await invite(users.owner, room.id, users.guest.id);
@@ -497,7 +520,7 @@ test('only the owner reports playback: 403 for a member, 404 in a hidden room', 
   sent.length = 0;
 
   const state = { playing: false, positionMs: 1000 };
-  assertProblem(await putPlayback(users.guest, room.id, state), 403, 'forbidden');
+  assertProblem(await putPlayback(users.guest, room.id, state), 403, 'not_delegated');
   assertProblem(await putPlayback(users.stranger, room.id, state), 404, 'not_found');
   assertProblem(await getPlayback(users.stranger, room.id), 404, 'not_found');
   assert.equal((await getPlayback(users.guest, room.id)).statusCode, 200);
