@@ -43,8 +43,8 @@ class Room {
   final String? description;
   final DateTime? windowStart;
   final DateTime? windowEnd;
-  final int? placeLat;
-  final int? placeLon;
+  final double? placeLat;
+  final double? placeLon;
   final int? placeRadius;
 
   factory Room.fromJson(Map<String, dynamic> j) {
@@ -64,9 +64,9 @@ class Room {
       windowEnd: window == null
           ? null
           : DateTime.parse(window['end'] as String),
-      placeLat: place == null ? null : place['lat'],
-      placeLon: place == null ? null : place['lon'],
-      placeRadius: place == null ? null : place['radius'],
+      placeLat: place == null ? null : (place['lat'] as num).toDouble(),
+      placeLon: place == null ? null : (place['lng'] as num).toDouble(),
+      placeRadius: place == null ? null : place['radiusM'] as int,
       beaconMinor: j['beaconMinor'] as int?,
       version: j['version'] as int,
       createdAt: DateTime.parse(j['createdAt']),
