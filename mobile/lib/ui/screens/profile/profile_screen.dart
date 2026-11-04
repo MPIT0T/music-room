@@ -111,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return GoogleSignInButton(
                   label: 'Link Google account',
                   onIdToken: (idToken) => _run(
-                        () => authService.linkGoogle(idToken),
+                    () => authService.linkGoogle(idToken),
                     'Google account linked.',
                   ),
                   onError: _show,
