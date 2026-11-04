@@ -47,6 +47,8 @@ class Room {
   final double? placeLon;
   final int? placeRadius;
 
+  List<Room> selectRoom() {}
+
   factory Room.fromJson(Map<String, dynamic> j) {
     final window = j['window'] as Map<String, dynamic>?;
     final place = j['place'] as Map<String, dynamic>?;

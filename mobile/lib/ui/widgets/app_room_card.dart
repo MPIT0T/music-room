@@ -3,10 +3,16 @@ import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/data/models/room.dart';
 
 class AppRoomCard extends StatelessWidget {
-  const AppRoomCard({super.key, required this.room, required this.onTap});
+  const AppRoomCard({
+    super.key,
+    required this.room,
+    required this.onTap,
+    this.onSettings,
+  });
 
   final Room room;
   final VoidCallback onTap;
+  final VoidCallback? onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +28,17 @@ class AppRoomCard extends StatelessWidget {
             crossAxisAlignment: .start,
             spacing: Space.xs,
             children: [
-              Text(room.name, style: tt.titleMedium),
+              Row(
+                children: [
+                  Expanded(child: Text(room.name, style: tt.titleMedium)),
+                  if (onSettings != null)
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      tooltip: 'Room settings',
+                      onPressed: onSettings,
+                    ),
+                ],
+              ),
               if (room.description != null)
                 Text(room.description!, maxLines: 1, overflow: .ellipsis),
               Wrap(
