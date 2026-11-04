@@ -3,6 +3,9 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { pub, sub } from './redis.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
 import { devBroadcastHandler } from '../dev/socket.js';
+import { isDeviceOnline } from '../devices/presence.js';
+import { emitPlayback } from '../rooms/events.js';
+import { pauseRoomsOfDevice } from '../rooms/playback.js';
 
 export function authenticateSocket(tokens, log) {
   return async (socket, next) => {
@@ -18,7 +21,7 @@ export function authenticateSocket(tokens, log) {
   };
 }
 
-export function socketSetup(httpServer, { tokens, db, log, devTools = false }) {
+export function socketSetup(httpServer, { tokens, db, log, devTools = false, redis }) {
   const io = new Server(httpServer, { cors: { origin: false } });
   io.adapter(createAdapter(pub, sub));
 
@@ -32,6 +35,7 @@ export function socketSetup(httpServer, { tokens, db, log, devTools = false }) {
       if (typeof payload?.roomId === 'string') socket.leave(`room:${payload.roomId}`);
     });
     if (devTools) socket.on('dev:broadcast', devBroadcastHandler(io, socket));
+    socket.on('disconnect', deviceOfflineHandler(io, redis, socket, log));
   });
 
   io.on('close', () => {});
@@ -60,6 +64,21 @@ export function subscribeHandler(socket, db, log) {
     } catch (err) {
       log?.error({ err, roomId: payload?.roomId }, 'socket subscribe failed');
       reply({ ok: false, code: 'INTERNAL' });
+    }
+  };
+}
+
+export function deviceOfflineHandler(io, redis, socket, log) {
+  return async () => {
+    const { deviceId } = socket.data;
+    try {
+      if (redis == null || (await isDeviceOnline(io, deviceId))) return;
+      for (const { roomId, playback } of await pauseRoomsOfDevice(redis, deviceId)) {
+        emitPlayback(io, roomId, playback, deviceId);
+        log?.info({ roomId, deviceId }, 'playing device offline, playback paused');
+      }
+    } catch (err) {
+      log?.error({ err, deviceId }, 'pause on disconnect failed');
     }
   };
 }
