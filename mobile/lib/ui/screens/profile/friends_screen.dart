@@ -1,10 +1,250 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-class FriendsScreen extends StatelessWidget {
-  const FriendsScreen({super.key});
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:music_room/core/services.dart';
+import 'package:music_room/data/models/friend.dart';
+import 'package:music_room/friends/friends_service.dart';
+import 'package:music_room/ui/theme/tokens.dart';
+
+class FriendsScreen extends StatefulWidget {
+  // The service can be swapped in tests; the app uses the shared one
+  const FriendsScreen({super.key, this.service});
+
+  final FriendsService? service;
+
+  @override
+  State<FriendsScreen> createState() => _FriendsScreenState();
+}
+
+class _FriendsScreenState extends State<FriendsScreen> {
+  FriendsService get _service => widget.service ?? friendsService;
+
+  List<UserSummary> _friends = [];
+  List<FriendRequest> _incoming = [];
+  List<FriendRequest> _outgoing = [];
+  bool _loading = true;
+  String? _error;
+
+  final _searchField = TextEditingController();
+  List<SearchResult> _results = [];
+  Timer? _debounce;
+  int _searchId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchField.dispose();
+    super.dispose();
+  }
+
+  // The search route allows 30 calls a minute: wait for a pause in typing
+  void _onSearchChanged(String text) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _search);
+  }
+
+  Future<void> _search() async {
+    final query = _searchField.text.trim();
+    // Each search gets a number: an answer that arrives after a newer search is dropped
+    final id = ++_searchId;
+    if (query.isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+    try {
+      final results = await _service.search(query);
+      if (mounted && id == _searchId) setState(() => _results = results);
+    } on FriendsFailure catch (e) {
+      if (mounted) _showError(e);
+    }
+  }
+
+  void _showError(FriendsFailure e) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+
+  Future<void> _load() async {
+    try {
+      // Both calls run at the same time; the screen waits for the slower one
+      final (friends, requests) = await (
+        _service.list(),
+        _service.requests(),
+      ).wait;
+      if (!mounted) return;
+      setState(() {
+        _friends = friends;
+        _incoming = requests.incoming;
+        _outgoing = requests.outgoing;
+        _error = null;
+      });
+    } on FriendsFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Runs an action (accept, refuse, cancel, remove), then reloads the lists.
+  Future<void> _act(Future<void> Function() action) async {
+    try {
+      await action();
+      await _load();
+      if (_results.isNotEmpty) await _search();
+    } on FriendsFailure catch (e) {
+      if (mounted) _showError(e);
+    }
+  }
+
+  Future<void> _confirmRemove(UserSummary friend) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${friend.displayName}?'),
+        content: const Text('You will no longer control each other\'s music.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _act(() => _service.remove(friend.userId));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("Friends")));
+    final tt = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(title: Text('Friends', style: tt.titleLarge)),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(Space.screen),
+                children: [
+                  TextField(
+                    controller: _searchField,
+                    onChanged: _onSearchChanged,
+                    decoration: const InputDecoration(
+                      hintText: 'Search people by name',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  for (final r in _results)
+                    ListTile(
+                      leading: _avatar(r.user),
+                      title: Text(r.user.displayName),
+                      trailing: _searchAction(r),
+                    ),
+                  const SizedBox(height: Space.section),
+                  if (_error != null) ...[
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    const SizedBox(height: Space.section),
+                  ],
+                  if (_incoming.isNotEmpty) ...[
+                    Text('Requests received', style: tt.titleMedium),
+                    for (final r in _incoming)
+                      ListTile(
+                        leading: _avatar(r.user),
+                        title: Text(r.user.displayName),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Decline',
+                              icon: const Icon(Icons.close),
+                              onPressed: () =>
+                                  _act(() => _service.remove(r.user.userId)),
+                            ),
+                            IconButton(
+                              tooltip: 'Accept',
+                              icon: const Icon(Icons.check),
+                              onPressed: () =>
+                                  _act(() => _service.add(r.user.userId)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: Space.section),
+                  ],
+                  if (_outgoing.isNotEmpty) ...[
+                    Text('Requests sent', style: tt.titleMedium),
+                    for (final r in _outgoing)
+                      ListTile(
+                        leading: _avatar(r.user),
+                        title: Text(r.user.displayName),
+                        trailing: TextButton(
+                          onPressed: () =>
+                              _act(() => _service.remove(r.user.userId)),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    const SizedBox(height: Space.section),
+                  ],
+                  Text(
+                    'Your friends - ${_friends.length}',
+                    style: tt.titleMedium,
+                  ),
+                  if (_friends.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: Space.lg),
+                      child: Text('No friends yet.'),
+                    ),
+                  for (final f in _friends)
+                    ListTile(
+                      leading: _avatar(f),
+                      title: Text(f.displayName),
+                      onTap: () => context.go('/profile/friends/${f.userId}'),
+                      trailing: IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(Icons.person_remove_outlined),
+                        onPressed: () => _confirmRemove(f),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+    );
   }
+
+  Widget _searchAction(SearchResult r) {
+    final id = r.user.userId;
+    return switch (r.friendship) {
+      Friendship.none => TextButton(
+        onPressed: () => _act(() => _service.add(id)),
+        child: const Text('Add'),
+      ),
+      Friendship.incoming => TextButton(
+        onPressed: () => _act(() => _service.add(id)),
+        child: const Text('Accept'),
+      ),
+      Friendship.outgoing => TextButton(
+        onPressed: () => _act(() => _service.remove(id)),
+        child: const Text('Cancel'),
+      ),
+      Friendship.accepted => const Text('Friend'),
+    };
+  }
+
+  // First letter of the name until avatars are served by the API
+  Widget _avatar(UserSummary user) =>
+      CircleAvatar(child: Text(user.displayName.characters.first));
 }

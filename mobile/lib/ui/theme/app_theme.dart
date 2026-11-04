@@ -171,6 +171,14 @@ ThemeData buildAppTheme(Brightness brightness) {
       errorBorder: _border(scheme.error),
       focusedErrorBorder: _border(scheme.error, width: 2),
     ),
+    chipTheme: ChipThemeData(
+      backgroundColor: scheme.surface,
+      side: BorderSide(color: scheme.onSurfaceVariant),
+      shape: const StadiumBorder(),
+      labelStyle: _textTheme.labelLarge?.copyWith(color: scheme.onSurface),
+      padding: .symmetric(horizontal: Space.md, vertical: Space.xs),
+      elevation: 0,
+    ),
     sliderTheme: SliderThemeData(
       trackHeight: 4,
       thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
