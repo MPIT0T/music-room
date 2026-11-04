@@ -1,10 +1,12 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:music_room/core/app_storage.dart';
 
-/// Tokens and deviceId of this install. Keychain / Keystore on mobile; on web,
-/// encrypted in the browser storage, readable by an XSS like anything in the page.
+/// Tokens and deviceId of this install. Keychain / Keystore on mobile; on web, the
+/// browser storage (encrypted on secure pages, plain over http: see app_storage_web),
+/// readable by an XSS like anything in the page.
 class SessionStore {
   SessionStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? appStorage();
 
   final FlutterSecureStorage _storage;
 
