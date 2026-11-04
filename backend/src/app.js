@@ -25,6 +25,7 @@ import emailPagesRoutes from './routes/email-pages.js';
 import meRoutes from './routes/me.js';
 import genresRoutes from './routes/genres.js';
 import meOauthRoutes from './routes/me-oauth.js';
+import devicesRoutes from './routes/devices.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { limits as defaultLimits } from './security/limits.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -136,6 +137,7 @@ export async function buildApp({
   await app.register(meRoutes);
   await app.register(genresRoutes);
   await app.register(meOauthRoutes);
+  await app.register(devicesRoutes);
 
   return app;
 }
