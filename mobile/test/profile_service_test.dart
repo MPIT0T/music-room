@@ -93,6 +93,30 @@ void main() {
     expect(jsonDecode(requests.single.body), {'plan': 'premium'});
   });
 
+  test('user keeps only what the server sends of another profile', () async {
+    final service = serviceAnswering(
+      (_) => json(200, {
+        'id': 'u2',
+        'relationship': 'none',
+        'public': {
+          'displayName': 'Nina',
+          'avatarUrl': null,
+          'bio': null,
+          'genres': <Object>[],
+        },
+        'friends': null,
+      }),
+    );
+
+    final user = await service.user('u2');
+
+    expect(requests.single.url.path, '/v1/users/u2');
+    expect(user.relationship, Relationship.none);
+    expect(user.displayName, 'Nina');
+    expect(user.friendsVisible, isFalse);
+    expect(user.city, isNull);
+  });
+
   test('update sends the whole form and returns the saved account', () async {
     final service = serviceAnswering((_) => json(200, meJson));
 

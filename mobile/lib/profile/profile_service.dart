@@ -21,12 +21,19 @@ class ProfileService {
     'network_error': 'Cannot reach the server. Check your connection.',
     'validation_failed': 'Some fields are invalid.',
     'unknown_genre': 'A genre no longer exists. Reload the page and try again.',
+    'user_not_found': 'This user no longer exists.',
   };
 
   /// The signed-in user, every visibility group included (GET /v1/me).
   Future<Me> me() => _call(() async {
     final res = await _api.get('/v1/me');
     return Me.fromJson(res.body);
+  });
+
+  /// Another user's profile, with what the server lets me see (GET /v1/users/:id).
+  Future<UserProfile> user(String id) => _call(() async {
+    final res = await _api.get('/v1/users/${Uri.encodeComponent(id)}');
+    return UserProfile.fromJson(res.body);
   });
 
   /// Saves the whole edit form (PATCH /v1/me) and returns the updated account.
