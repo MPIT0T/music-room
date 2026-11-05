@@ -26,7 +26,7 @@ const fakeIo = {
 // A user with one devices row per name; user.devices[name] = { id, token }
 async function createUser(name, deviceNames = ['phone']) {
   const [[row]] = await app.db.query(
-    'INSERT INTO users (display_name, email_verified_at) VALUES (?, NOW(3)) RETURNING id',
+    "INSERT INTO users (display_name, email_verified_at, plan) VALUES (?, NOW(3), 'premium') RETURNING id",
     [`deleg-${RUN}-${name}`],
   );
   const devices = {};
