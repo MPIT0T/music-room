@@ -1,11 +1,12 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:music_room/core/app_storage.dart';
 import 'package:music_room/core/config.dart';
 
 /// The API address, editable in the app (subject V.5: "the back-end's address must be
 /// configurable on the application for tests"). The build-time value is the default.
 class ServerSettings {
   ServerSettings([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? appStorage();
 
   final FlutterSecureStorage _storage;
   static const _key = 'api_base_url';
