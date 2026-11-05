@@ -160,6 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               variant: AppButtonVariant.danger,
               icon: Icons.logout,
               onPressed: () async {
+                realtimeService.disconnect();
                 await authService.logout();
                 if (context.mounted) context.go('/welcome');
               },

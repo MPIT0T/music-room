@@ -18,6 +18,7 @@ const USERS = [
     key: 'alice',
     email: 'alice@musicroom.test',
     displayName: 'Alice',
+    plan: 'premium',
     genres: ['Pop', 'Electronic'],
   },
   { key: 'bob', email: 'bob@musicroom.test', displayName: 'Bob', genres: ['Rock', 'Metal'] },
@@ -111,9 +112,9 @@ await withTransaction(pool, async (conn) => {
   const userIds = {};
   for (const [i, u] of USERS.entries()) {
     const [[row]] = await conn.query(
-      `INSERT INTO users (email, password_hash, email_verified_at, display_name)
-       VALUES (?, ?, CURRENT_TIMESTAMP(3), ?) RETURNING id`,
-      [u.email, hashes[i], u.displayName],
+      `INSERT INTO users (email, password_hash, email_verified_at, display_name, plan)
+       VALUES (?, ?, CURRENT_TIMESTAMP(3), ?, ?) RETURNING id`,
+      [u.email, hashes[i], u.displayName, u.plan ?? 'free'],
     );
     userIds[u.key] = row.id;
   }

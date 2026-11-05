@@ -4,6 +4,7 @@ import 'package:music_room/core/api_client.dart';
 import 'package:music_room/core/client_info.dart';
 import 'package:music_room/core/server_settings.dart';
 import 'package:music_room/core/rooms_service.dart';
+import 'package:music_room/core/realtime_service.dart';
 import 'package:music_room/friends/friends_service.dart';
 
 // Shared by the screens until the app gets a dependency-injection setup.
@@ -14,6 +15,11 @@ final apiClient = ApiClient(
   server: serverSettings,
   store: sessionStore,
   userAgent: buildUserAgent,
+);
+final realtimeService = RealtimeService(
+  api: apiClient,
+  server: serverSettings,
+  store: sessionStore,
 );
 final authService = AuthService(api: apiClient, store: sessionStore);
 final roomService = RoomService(api: apiClient);
