@@ -22,6 +22,10 @@ class RoomService {
     'validation_failed': 'Error validation failed',
     'network_error': 'Error network',
     'unauthorized': 'Error unauthorized',
+    'premium_required':
+        'Private rooms and voting restrictions need a premium account.',
+    'room_limit_reached':
+        'Free accounts host one room at a time. Delete it or go premium.',
   };
 
   Future<Room> createRoom(
