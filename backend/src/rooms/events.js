@@ -20,3 +20,9 @@ export function closeRoomChannel(io, roomId) {
 export function removeUserFromChannel(io, roomId, userId) {
   io?.in(`user:${userId}`).socketsLeave(channel(roomId));
 }
+
+export function keepOnlyUsersInChannel(io, roomId, userIds) {
+  io?.in(channel(roomId))
+    .except(userIds.map((userId) => `user:${userId}`))
+    .socketsLeave(channel(roomId));
+}
