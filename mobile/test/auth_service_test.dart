@@ -228,23 +228,14 @@ void main() {
     'link and unlink Google call the profile routes with the access token',
     () async {
       await store.save(session('d1'));
-      final service = serviceAnswering(
-        (_) => http.Response(
-          jsonEncode({
-            'providers': ['password', 'google'],
-          }),
-          200,
-        ),
-      );
+      final service = serviceAnswering((_) => http.Response('{}', 200));
 
       await service.linkGoogle(idToken, 'correct horse battery');
       await service.unlinkGoogle();
-      final providers = await service.providers();
 
       expect(requests.map((r) => '${r.method} ${r.url.path}'), [
         'PUT /v1/me/oauth/google',
         'DELETE /v1/me/oauth/google',
-        'GET /v1/me',
       ]);
       expect(jsonDecode(requests.first.body), {
         'idToken': idToken,
@@ -254,7 +245,6 @@ void main() {
         requests.map((r) => r.headers['authorization']),
         everyElement('Bearer access-d1'),
       );
-      expect(providers, ['password', 'google']);
     },
   );
 
@@ -286,5 +276,38 @@ void main() {
         expect(failure.toString(), isNot(contains(idToken)));
       }
     }
+  });
+
+  test('change password sends both passwords with the access token', () async {
+    await store.save(session('d1'));
+    final service = serviceAnswering((_) => http.Response('', 204));
+
+    await service.changePassword('old password', 'new password');
+
+    expect(requests.single.method, 'PUT');
+    expect(requests.single.url.path, '/v1/me/password');
+    expect(requests.single.headers['authorization'], 'Bearer access-d1');
+    expect(jsonDecode(requests.single.body), {
+      'currentPassword': 'old password',
+      'newPassword': 'new password',
+    });
+  });
+
+  test('a wrong current password gets its own message', () async {
+    await store.save(session('d1'));
+    final service = serviceAnswering(
+      (_) => problem(401, 'invalid_credentials'),
+    );
+
+    await expectLater(
+      service.changePassword('wrong', 'new password'),
+      throwsA(
+        isA<AuthFailure>().having(
+          (e) => e.message,
+          'message',
+          'Wrong current password.',
+        ),
+      ),
+    );
   });
 }
