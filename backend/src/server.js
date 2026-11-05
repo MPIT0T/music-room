@@ -8,6 +8,8 @@ const io = socketSetup(app.server, {
   tokens: app.tokens,
   db: app.db,
   log: app.log,
+  rateLimiter: app.rateLimiter,
+  limits: app.limits,
   devTools: app.devTools,
 });
 

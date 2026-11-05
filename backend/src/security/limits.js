@@ -1,3 +1,8 @@
+// Sockets one account holds open on an API instance: phone, tablet, a spare browser tab
+export const MAX_SOCKETS_PER_USER = 10;
+// Clients only send subscribe and unsubscribe: Socket.IO's default of 1 MB is far too much
+export const MAX_SOCKET_MESSAGE_BYTES = 16 * 1024;
+
 // Every limit in one place, so they can be reviewed and tuned together
 export const limits = {
   // Contract v1.1: counted per email whether the account exists or not, so a 429 reveals nothing
@@ -18,6 +23,12 @@ export const limits = {
   friendRequest: { name: 'friend-request', limit: 30, windowSeconds: 60 * 60 },
   // Friend searching
   userSearch: { name: 'user-search', limit: 30, windowSeconds: 60 },
+  // Reconnecting is cheap for a phone on bad network, a loop is not
+  socketConnect: { name: 'socket-connect', limit: 30, windowSeconds: 60 },
+  // Each subscribe is a database read
+  socketSubscribe: { name: 'socket-subscribe', limit: 60, windowSeconds: 60 },
+  // Only caps the log lines: refusing an IP would also lock out valid users sharing it (42)
+  socketRejectedLog: { name: 'socket-rejected-log', limit: 20, windowSeconds: 60 },
   // Plan switches are simulated (no payment): enough to try both plans, not to hammer the route
   planChange: { name: 'plan-change', limit: 20, windowSeconds: 60 * 60 },
 };
