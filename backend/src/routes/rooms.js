@@ -7,6 +7,7 @@ import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
 import { clearPlayback } from '../rooms/playback.js';
 import {
+  countOwnedRooms,
   deleteRoom,
   findRoomByBeacon,
   insertRoom,
@@ -23,6 +24,13 @@ import {
   roomRuleIssues,
   roomsResponse,
 } from '../rooms/schemas.js';
+import {
+  FREE_ROOM_LIMIT,
+  premiumIssues,
+  premiumRequired,
+  roomLimitReached,
+} from '../users/plan.js';
+import { lockPlan } from '../users/repo.js';
 
 const etag = (room) => `"${room.version}"`;
 
@@ -59,14 +67,28 @@ export default async function roomsRoutes(app) {
       'the room (private: owner and members only). `accessPolicy`: who proposes and votes ' +
       '(everyone, invited members, or place_time: people inside `place` during `window`, ' +
       'both required, who send their position in X-Location). The owner is never restricted. ' +
-      '409 beacon_taken if another room already uses `beaconMinor`.',
+      '409 beacon_taken if another room already uses `beaconMinor`. Free accounts host one ' +
+      'public room open to everyone, without beacon: 403 premium_required (fields listed in ' +
+      '`errors`) or 403 room_limit_reached.',
     security: [{ bearerAuth: [] }],
     body: createRoomBody,
-    response: { 201: roomResponse, ...problems(400, 401, 409) },
+    response: { 201: roomResponse, ...problems(400, 401, 403, 409) },
   };
 
   app.post('/v1/rooms', { schema: createSchema }, async (request, reply) => {
-    const room = await insertRoom(app.db, request.userId, request.body);
+    const room = await withTransaction(app.db, async (conn) => {
+      // The owner row stays locked: two creations at once cannot both pass the free limit
+      const plan = await lockPlan(conn, request.userId);
+      if (plan == null) throw new HttpProblem(401, 'unauthorized');
+      if (plan === 'free') {
+        const issues = premiumIssues(request.body);
+        if (issues.length > 0) throw premiumRequired(issues);
+        if ((await countOwnedRooms(conn, request.userId)) >= FREE_ROOM_LIMIT) {
+          throw roomLimitReached();
+        }
+      }
+      return insertRoom(conn, request.userId, request.body);
+    });
     return reply
       .code(201)
       .header('etag', etag(room))
@@ -118,7 +140,10 @@ export default async function roomsRoutes(app) {
     description:
       'Owner only. Send only the fields to change, and the ETag from GET in If-Match: ' +
       '428 without it, 412 if the room changed since. Returns the room with its new ETag. ' +
-      '409 beacon_taken if another room already uses `beaconMinor`.',
+      '409 beacon_taken if another room already uses `beaconMinor`. Subscribers then ' +
+      'receive `room.changed` with `change: "settings"` and the new version. A free owner ' +
+      'gets 403 premium_required when setting a premium value (private, invited, place_time, ' +
+      'beacon); values already stored are kept, so a room made on premium stays as it is.',
     security: [{ bearerAuth: [] }],
     params: roomParams,
     headers: ifMatchHeaders,
@@ -138,10 +163,17 @@ export default async function roomsRoutes(app) {
     const issues = roomRuleIssues(next);
     if (issues.length > 0) throw invalidRoom(issues);
 
-    const room = await withTransaction(app.db, (conn) =>
-      updateRoom(conn, visible.room.id, version, next),
-    );
+    const room = await withTransaction(app.db, async (conn) => {
+      const plan = await lockPlan(conn, request.userId);
+      if (plan === 'free') {
+        const premium = premiumIssues(next, visible.room);
+        if (premium.length > 0) throw premiumRequired(premium);
+      }
+      return updateRoom(conn, visible.room.id, version, next);
+    });
     if (room == null) throw stale();
+
+    emitRoomChanged(app.io, room, 'settings');
     return reply.header('etag', etag(room)).send(room);
   });
 

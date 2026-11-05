@@ -39,3 +39,13 @@ export function toPublicUser(row) {
     providers: [...(row.password_hash ? ['password'] : []), ...oauth],
   };
 }
+
+// Locks the user row until the transaction ends: checks made on the plan cannot race
+export async function lockPlan(conn, userId) {
+  const [[row]] = await conn.query('SELECT plan FROM users WHERE id = ? FOR UPDATE', [userId]);
+  return row?.plan ?? null;
+}
+
+export async function setPlan(conn, userId, plan) {
+  await conn.query('UPDATE users SET plan = ? WHERE id = ?', [plan, userId]);
+}

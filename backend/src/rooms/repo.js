@@ -55,6 +55,11 @@ export async function listVisibleRooms(db, userId, limit) {
   return rows.map(toRoom);
 }
 
+export async function countOwnedRooms(db, ownerId) {
+  const [[row]] = await db.query('SELECT COUNT(*) AS n FROM rooms WHERE owner_id = ?', [ownerId]);
+  return Number(row.n);
+}
+
 export async function insertRoom(db, ownerId, input) {
   const [rows] = await db.query(
     `INSERT INTO rooms (owner_id, name, description, visibility, access_policy, starts_at, ends_at,

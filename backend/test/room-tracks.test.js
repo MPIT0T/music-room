@@ -19,9 +19,10 @@ const fakeIo = {
 };
 
 async function createUser(name) {
-  const [[row]] = await app.db.query('INSERT INTO users (display_name) VALUES (?) RETURNING id', [
-    `queue-${RUN}-${name}`,
-  ]);
+  const [[row]] = await app.db.query(
+    "INSERT INTO users (display_name, plan) VALUES (?, 'premium') RETURNING id",
+    [`queue-${RUN}-${name}`],
+  );
   const token = await app.tokens.signAccessToken({ userId: row.id, deviceId: randomUUID() });
   return { id: row.id, token };
 }

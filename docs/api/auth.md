@@ -442,6 +442,34 @@ L'ID token est vérifié comme pour `POST /v1/sessions/oauth`. L'email du compte
 | 404 | `not_linked` | aucun compte Google lié |
 | 409 | `last_login_method` | le compte n'a pas de mot de passe : délier l'empêcherait de se reconnecter. Définir d'abord un mot de passe via `POST /v1/password-resets` |
 
+### `PUT /v1/me/subscription` : changer d'abonnement
+
+```json
+{ "plan": "premium" }
+```
+
+Abonnement **simulé**, sans paiement. **Réponse `204`**, idempotent. Le plan se lit dans `GET /v1/me` (`plan`).
+
+| | Free | Premium |
+|---|---|---|
+| Rejoindre une room, voter, proposer un morceau | oui | oui |
+| Rooms possédées | 1 | illimité |
+| Room privée, licences `invited` et `place_time`, beacon | non | oui |
+
+Repasser en free ne casse rien : les rooms existantes gardent leurs réglages. Seules les **nouvelles** valeurs premium sont refusées (`POST` et `PATCH /v1/rooms`), et redescendre une room (publique, sans beacon) reste toujours permis.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 400 | `validation_failed` | `plan` absent ou inconnu |
+| 429 | `rate_limited` | 20 changements / heure par utilisateur |
+
+Erreurs côté rooms pour un compte free :
+
+| Status | `code` | Quand |
+|---|---|---|
+| 403 | `premium_required` | valeur premium demandée ; `errors[].path` liste les champs (`visibility`, `accessPolicy`, `beaconMinor`) |
+| 403 | `room_limit_reached` | `POST /v1/rooms` alors qu'il possède déjà une room |
+
 ---
 
 ## Appareils (v1.1)
@@ -570,6 +598,7 @@ En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnect
 | PUT | `/v1/me/password` | Bearer | 204 |
 | PUT | `/v1/me/oauth/google` | Bearer | 200 `me` |
 | DELETE | `/v1/me/oauth/google` | Bearer | 200 `me` |
+| PUT | `/v1/me/subscription` | Bearer | 204 |
 | GET | `/v1/me/devices` | Bearer | 200 |
 | PATCH | `/v1/me/devices/:id` | Bearer | 200 `device` |
 | DELETE | `/v1/me/devices/:id` | Bearer | 204 |

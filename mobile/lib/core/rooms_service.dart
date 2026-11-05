@@ -17,6 +17,10 @@ class RoomService {
   final ApiClient _api;
 
   static const _messages = {
+    'premium_required':
+        'Private rooms and voting restrictions need a premium account.',
+    'room_limit_reached':
+        'Free accounts host one room at a time. Delete it or go premium.',
     'validation_failed': 'Error validation failed',
     'network_error': 'Error network',
     'unauthorized': 'Error unauthorized',
