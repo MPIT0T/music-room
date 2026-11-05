@@ -93,6 +93,49 @@ void main() {
     expect(jsonDecode(requests.single.body), {'plan': 'premium'});
   });
 
+  test('update sends the whole form and returns the saved account', () async {
+    final service = serviceAnswering((_) => json(200, meJson));
+
+    final me = await service.update(
+      displayName: 'Max',
+      bio: 'Jazz at night',
+      city: 'Lyon',
+      phone: '',
+      realName: '',
+      birthDate: null,
+      genreIds: [5],
+    );
+
+    expect(requests.single.method, 'PATCH');
+    expect(requests.single.url.path, '/v1/me');
+    expect(jsonDecode(requests.single.body), {
+      'displayName': 'Max',
+      'bio': 'Jazz at night',
+      'city': 'Lyon',
+      'phone': '',
+      'realName': '',
+      'birthDate': null,
+      'genreIds': [5],
+    });
+    expect(me.city, 'Lyon');
+  });
+
+  test('genres lists the genres of the API', () async {
+    final service = serviceAnswering(
+      (_) => json(200, {
+        'genres': [
+          {'id': 5, 'name': 'Jazz'},
+          {'id': 2, 'name': 'Rock'},
+        ],
+      }),
+    );
+
+    final genres = await service.genres();
+
+    expect(requests.single.url.path, '/v1/genres');
+    expect(genres.map((g) => g.name), ['Jazz', 'Rock']);
+  });
+
   test('errors become a ProfileFailure with a readable message', () async {
     final service = serviceAnswering((_) => problem(429, 'rate_limited'));
 
