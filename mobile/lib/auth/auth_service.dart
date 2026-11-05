@@ -107,17 +107,7 @@ class AuthService {
 
   Future<bool> hasSession() => _store.hasSession();
 
-  /// Login methods of the account (`password`, `google`), from GET /v1/me.
-  Future<List<String>> providers() async {
-    try {
-      final res = await _api.get('/v1/me');
-      return List<String>.from(res.body['providers'] as List? ?? const []);
-    } on ApiException catch (e) {
-      throw _failure(e);
-    }
-  }
-
-  // Same codes as sign-in, but the user is linking from the profile: the advice differs
+  // Same codes as sign-in, but the user is linking from the settings: the advice differs
   static const _linkMessages = {
     'already_linked':
         'Another Google account is already linked. Unlink it first.',
@@ -131,21 +121,45 @@ class AuthService {
 
   /// Links a Google account to the signed-in account (PUT /v1/me/oauth/google, subject V.1).
   /// The current password is required: a stolen session alone cannot add a way in.
-  Future<void> linkGoogle(String idToken, String currentPassword) => _linkCall(
-    () => _api.putJson('/v1/me/oauth/google', {
-      'idToken': idToken,
-      'currentPassword': currentPassword,
-    }),
-  );
+  Future<void> linkGoogle(String idToken, String currentPassword) =>
+      _accountCall(
+        () => _api.putJson('/v1/me/oauth/google', {
+          'idToken': idToken,
+          'currentPassword': currentPassword,
+        }),
+        _linkMessages,
+      );
 
   Future<void> unlinkGoogle() =>
-      _linkCall(() => _api.delete('/v1/me/oauth/google'));
+      _accountCall(() => _api.delete('/v1/me/oauth/google'), _linkMessages);
 
-  Future<void> _linkCall(Future<ApiResponse> Function() call) async {
+  static const _passwordMessages = {
+    'invalid_credentials': 'Wrong current password.',
+    'no_password':
+        'Your account has no password yet: set one with Forgot password.',
+    'validation_failed': 'The new password needs 8 to 128 characters.',
+  };
+
+  /// Changes the password (PUT /v1/me/password). The server signs out every other
+  /// device; this one stays signed in.
+  Future<void> changePassword(String currentPassword, String newPassword) =>
+      _accountCall(
+        () => _api.putJson('/v1/me/password', {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+        _passwordMessages,
+      );
+
+  // Calls made from the settings: some codes need advice specific to the action
+  Future<void> _accountCall(
+    Future<ApiResponse> Function() call,
+    Map<String, String> messages,
+  ) async {
     try {
       await call();
     } on ApiException catch (e) {
-      final message = _linkMessages[e.code];
+      final message = messages[e.code];
       throw message != null ? AuthFailure(e.code, message) : _failure(e);
     }
   }
