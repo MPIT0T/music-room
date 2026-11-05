@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/data/models/room.dart';
+import 'package:music_room/core/rooms_service.dart';
+import 'package:music_room/core/services.dart';
+import 'package:go_router/go_router.dart';
 
 class MyRoomsScreen extends StatefulWidget {
   const MyRoomsScreen({super.key});
@@ -11,7 +14,30 @@ class MyRoomsScreen extends StatefulWidget {
 }
 
 class _MyRoomsScreenState extends State<MyRoomsScreen> {
+  final RoomService _service = roomService;
   RoomSelection _selection = .mine;
+
+  List<Room> _rooms = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rooms = await _service.listRoom();
+      if (!mounted) return;
+      setState(() {
+        _rooms = rooms;
+        _error = null;
+      });
+    } on RoomFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +52,11 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
         ],
       ),
       body: AppScreenBody(
-        fillHeight: true,
+        scrollable: false,
         child: Column(
           crossAxisAlignment: .stretch,
           children: [
+            Text(_error ?? 'No Error'),
             SegmentedButton(
               segments: [
                 ButtonSegment(value: RoomSelection.mine, label: Text('Mine')),
@@ -46,7 +73,17 @@ class _MyRoomsScreenState extends State<MyRoomsScreen> {
               onSelectionChanged: (s) => setState(() => _selection = s.first),
             ),
             const SizedBox(height: Space.md),
-            const Spacer(),
+            Expanded(
+              child: ListView.separated(
+                itemCount: _rooms.length,
+                itemBuilder: (context, index) => AppRoomCard(
+                  room: _rooms[index],
+                  onTap: () => context.push('/rooms/${_rooms[index].id}'),
+                ),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: Space.cardGap),
+              ),
+            ),
           ],
         ),
       ),
