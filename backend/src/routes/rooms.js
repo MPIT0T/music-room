@@ -5,7 +5,6 @@ import { withTransaction } from '../db/tx.js';
 import { canManage } from '../rooms/access.js';
 import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
-import { clearPlayback } from '../rooms/playback.js';
 import {
   countOwnedRooms,
   deleteRoom,
@@ -24,6 +23,7 @@ import {
   roomRuleIssues,
   roomsResponse,
 } from '../rooms/schemas.js';
+import { clearActiveDevice, clearPlayback } from '../rooms/playback.js';
 import {
   FREE_ROOM_LIMIT,
   premiumIssues,
@@ -199,6 +199,7 @@ export default async function roomsRoutes(app) {
     const deleted = await deleteRoom(app.db, room.id, room.ownerId);
     if (!deleted) throw new HttpProblem(404, 'not_found');
     await clearPlayback(app.redis, room.id);
+    await clearActiveDevice(app.redis, room.id);
 
     emitRoomChanged(app.io, { ...room, version: room.version + 1 }, 'deleted');
     closeRoomChannel(app.io, room.id);

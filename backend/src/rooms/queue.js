@@ -105,14 +105,23 @@ export async function unvote(db, itemId, userId) {
   return result.affectedRows > 0;
 }
 
+export const STALE = Symbol('stale');
 // Ends the playing item and starts the most voted queued one (same order as listQueue).
 // Returns the new playing item ({ id, trackId }), null if the queue was empty, undefined if the
 // room is gone.
-export async function skip(db, roomId) {
+export async function skip(db, roomId, { expectedItem } = {}) {
   return withTransaction(db, async (conn) => {
     // Lock the room row: concurrent skips of the same room run one after the other
     const [[room]] = await conn.query('SELECT id FROM rooms WHERE id = ? FOR UPDATE', [roomId]);
     if (!room) return undefined;
+
+    if (expectedItem != null) {
+      const [[playing]] = await conn.query(
+        `SELECT id FROM room_tracks WHERE room_id = ? AND status = 'playing'`,
+        [roomId],
+      );
+      if (playing?.id !== expectedItem) return STALE;
+    }
 
     await conn.query(
       "UPDATE room_tracks SET status = 'played' WHERE room_id = ? AND status = 'playing'",

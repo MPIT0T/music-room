@@ -161,6 +161,24 @@ export const playbackState = z.object({
 
 export const playbackResponse = z.object({
   playback: playbackState.nullable().describe('null when nothing plays'),
+  activeDeviceId: z
+    .uuid()
+    .nullable()
+    .describe('The device that plays sound: if it is mine, I play; otherwise i am a remote'),
+  canControl: z.boolean().describe('Show play, pause, skip, seek to the caller'),
+});
+
+export const skipBody = z
+  .object({
+    expectedRoomTrackId: z
+      .uuid()
+      .optional()
+      .describe('The item the remote saw playing: 409 stale if it already changed'),
+  })
+  .nullish();
+
+export const transferBody = z.object({
+  deviceId: z.uuid().describe('One of my devices, online'),
 });
 
 // "lat,lng" as decimal degrees, e.g. "45.750000,4.850000"
