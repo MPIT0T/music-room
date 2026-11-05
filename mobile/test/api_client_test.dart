@@ -144,4 +144,21 @@ void main() {
     expect(expired, 0);
     expect(await store.refreshToken(), 'refresh-1');
   });
+
+  test(
+    'any transport failure becomes network_error, never an uncaught exception',
+    () async {
+      // e.g. a TLS handshake error: not an http.ClientException
+      final api = client(
+        (_) => throw const FormatException('handshake failed'),
+      );
+
+      await expectLater(
+        api.get('/v1/me'),
+        throwsA(
+          isA<ApiException>().having((e) => e.code, 'code', 'network_error'),
+        ),
+      );
+    },
+  );
 }

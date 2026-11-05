@@ -91,8 +91,13 @@ export function registerProblemHandlers(app) {
       });
     }
 
-    // Anything else is a bug: full error in the logs, nothing internal in the response
-    request.log.error({ err }, 'unhandled error');
+    // Anything else is a bug: details in the logs, nothing internal in the response.
+    // SQL errors carry the statement with its values (emails, hashes) and messages quoting
+    // them: only their codes are logged.
+    const logged = err.sqlState
+      ? { errno: err.errno, code: err.code, sqlState: err.sqlState }
+      : { err };
+    request.log.error(logged, 'unhandled error');
     return sendProblem(request, reply, { status: 500, code: 'internal_error' });
   });
 

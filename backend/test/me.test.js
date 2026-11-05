@@ -210,7 +210,7 @@ test('my own id gives relationship self', async () => {
 });
 
 test('unknown and malformed ids get the same 404', async () => {
-  for (const id of [randomUUID(), 'not-a-uuid', '1 OR 1=1']) {
+  for (const id of [randomUUID(), 'not-a-uuid', '1 OR 1=1', 'x'.repeat(90)]) {
     assertProblem(
       await call('GET', `/v1/users/${encodeURIComponent(id)}`, 'max'),
       404,
@@ -252,4 +252,13 @@ test('the profile routes are documented', async () => {
   assert.ok(spec.paths['/v1/me']?.get && spec.paths['/v1/me']?.patch);
   assert.ok(spec.paths['/v1/users/{id}']?.get);
   assert.ok(spec.paths['/v1/genres']?.get);
+});
+
+test('an empty phone clears it, like the other optional fields', async () => {
+  await patch('max', { phone: '+33 1 23 45 67 89' });
+
+  const res = await patch('max', { phone: '' });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().friends.phone, null);
 });

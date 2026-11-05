@@ -6,12 +6,14 @@ import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildApp } from '../src/app.js';
 import { loggerOptions } from '../src/logger.js';
 import { createGoogleVerifier } from '../src/auth/google.js';
+import { passwords } from '../src/auth/passwords.js';
 
 // Integration tests: real MariaDB (make test). Google is replaced by a local RSA key, offline.
 const RUN = randomUUID().slice(0, 8);
 const WEB = 'web-client.apps.googleusercontent.com';
 const email = (name) => `link-${RUN}-${name}@example.com`;
 const sub = (name) => `link-sub-${RUN}-${name}`;
+const PASSWORD = 'correct horse battery';
 
 const okPool = { query: async () => [[{ 1: 1 }]], end: async () => {} };
 const okRedis = { ping: async () => 'PONG', quit: async () => 'OK' };
@@ -37,13 +39,21 @@ before(async () => {
   app = await buildApp({
     logger: loggerOptions({ stream }),
     googleVerifier: createGoogleVerifier({ audiences: [WEB], jwks }),
+    // Unique rule names per run: the password checks of one test never limit another
+    limits: {
+      login: { name: `login-${RUN}`, limit: 5, windowSeconds: 900 },
+      loginIp: { name: `login-ip-${RUN}`, limit: 50, windowSeconds: 900 },
+      changePassword: { name: `change-${RUN}`, limit: 5, windowSeconds: 900 },
+    },
   });
-  for (const name of ['max', 'eve', 'twice', 'racer']) await createUser(name);
+  for (const name of ['max', 'eve', 'twice', 'racer', 'guesser']) await createUser(name);
   await createUser('googleonly', { withPassword: false });
 });
 
 after(async () => {
   await app.db.query('DELETE FROM users WHERE email LIKE ?', [`link-${RUN}-%`]);
+  const keys = await app.redis.keys(`rl:*-${RUN}:*`);
+  if (keys.length) await app.redis.del(keys);
   await app.close();
 });
 
@@ -51,7 +61,7 @@ async function createUser(name, { withPassword = true } = {}) {
   const [[row]] = await app.db.query(
     `INSERT INTO users (email, password_hash, email_verified_at, display_name)
      VALUES (?, ?, NOW(3), ?) RETURNING id`,
-    [email(name), withPassword ? 'x' : null, name],
+    [email(name), withPassword ? await passwords.hash(PASSWORD) : null, name],
   );
   users[name] = {
     id: row.id,
@@ -78,12 +88,12 @@ async function idToken(googleName, overrides = {}) {
   return token;
 }
 
-const link = (who, token, target = app) =>
+const link = (who, token, target = app, currentPassword = PASSWORD) =>
   target.inject({
     method: 'PUT',
     url: '/v1/me/oauth/google',
     headers: who ? { authorization: `Bearer ${users[who].token}` } : {},
-    payload: { idToken: token },
+    payload: { idToken: token, currentPassword },
   });
 const unlink = (who) =>
   app.inject({
@@ -213,4 +223,33 @@ test('link and unlink are documented', async () => {
   for (const status of ['200', '401', '409', '503'])
     assert.ok(status in path.put.responses, status);
   for (const status of ['200', '404', '409']) assert.ok(status in path.delete.responses, status);
+});
+
+test('linking needs the current password: a stolen access token alone is not enough', async () => {
+  const token = await idToken('thief-google');
+
+  assertProblem(await link('guesser', token, app, 'not the password'), 401, 'invalid_credentials');
+  const missing = await app.inject({
+    method: 'PUT',
+    url: '/v1/me/oauth/google',
+    headers: { authorization: `Bearer ${users.guesser.token}` },
+    payload: { idToken: token },
+  });
+  assert.equal(missing.statusCode, 400);
+  const [links] = await app.db.query('SELECT 1 FROM oauth_accounts WHERE user_id = ?', [
+    users.guesser.id,
+  ]);
+  assert.equal(links.length, 0);
+});
+
+test('password guesses through linking are limited, even sent in parallel', async () => {
+  const token = await idToken('thief2-google');
+
+  const statuses = await Promise.all(
+    Array.from({ length: 10 }, (_, i) => link('guesser', token, app, `guess ${i}`)),
+  );
+
+  // The previous test already used one try: at most 4 more reach argon2, the rest get 429
+  assert.ok(statuses.filter((r) => r.statusCode === 401).length <= 4);
+  assert.ok(statuses.filter((r) => r.statusCode === 429).length >= 6);
 });

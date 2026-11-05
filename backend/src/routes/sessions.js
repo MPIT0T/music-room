@@ -74,27 +74,38 @@ export default async function sessionsRoutes(app) {
     const { login, loginIp } = app.limits;
     const pair = `${request.ip}|${email}`;
 
-    // Checked before the password: once the limit is hit, even the right password is refused
-    for (const [rule, value] of [
-      [login, pair],
-      [loginIp, request.ip],
-    ]) {
-      const { allowed, retryAfter } = await app.rateLimiter.peek(rule, value);
-      if (!allowed) throw tooManyRequests(retryAfter);
+    // Every attempt is counted (atomic INCR) before argon2, not after a failure: otherwise
+    // parallel requests all read the counter before any failure is recorded, and N guesses
+    // get through instead of the limit. Once it is hit, even the right password is refused.
+    const counts = await Promise.all([
+      app.rateLimiter.consume(login, pair),
+      app.rateLimiter.consume(loginIp, request.ip),
+    ]);
+    const blocked = counts.filter((count) => !count.allowed);
+    if (blocked.length > 0) {
+      // A refused attempt never reaches argon2: give both counts back so they stay at the cap.
+      // Otherwise hammering one email would push the IP counter up and lock out a whole
+      // 42 cluster sharing that IP.
+      await Promise.all([
+        app.rateLimiter.refund(login, pair),
+        app.rateLimiter.refund(loginIp, request.ip),
+      ]);
+      throw tooManyRequests(Math.max(...blocked.map((count) => count.retryAfter)));
     }
 
     const user = await findUserByEmail(app.db, email);
     // No hash (unknown email, Google-only account): a dummy hash is verified, same cost
     if (!(await app.passwords.verify(user?.password_hash ?? null, password))) {
-      await Promise.all([
-        app.rateLimiter.consume(login, pair),
-        app.rateLimiter.consume(loginIp, request.ip),
-      ]);
       throw new HttpProblem(401, 'invalid_credentials');
     }
+    // Right password: not a guess. The pair forgets its failures; the IP gets its attempt back,
+    // so a whole 42 cluster behind one IP is only limited by its failures
+    await Promise.all([
+      app.rateLimiter.reset(login, pair),
+      app.rateLimiter.refund(loginIp, request.ip),
+    ]);
     if (!user.email_verified_at) throw new HttpProblem(403, 'email_not_verified');
 
-    await app.rateLimiter.reset(login, pair);
     const session = await withTransaction(app.db, (conn) =>
       openSession(conn, app.tokens, { userId: user.id, device, deviceId }),
     );
@@ -130,6 +141,9 @@ export default async function sessionsRoutes(app) {
       throw new HttpProblem(403, 'oauth_email_not_verified');
     }
     if (result.outcome === 'already_linked') throw new HttpProblem(409, 'already_linked');
+    if (result.outcome === 'password_login_required') {
+      throw new HttpProblem(409, 'password_login_required');
+    }
 
     // aud and azp show which client (web, Android) asked: enough to debug a misconfigured app
     request.log.info(

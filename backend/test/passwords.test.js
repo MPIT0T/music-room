@@ -245,3 +245,17 @@ test('the password routes are documented with their answers', async () => {
     for (const status of statuses) assert.ok(status in doc.responses, `${path} ${status}`);
   }
 });
+
+test('current-password guesses sent at once are limited too', async () => {
+  const id = await createAccount('parallel');
+  const { accessToken } = await newSession(id);
+
+  const res = await Promise.all(
+    Array.from({ length: 12 }, (_, i) =>
+      change(accessToken, { currentPassword: `guess ${i}`, newPassword: NEW }),
+    ),
+  );
+
+  assert.equal(res.filter((r) => r.statusCode === 401).length, 5);
+  assert.equal(res.filter((r) => r.statusCode === 429).length, 7);
+});

@@ -237,7 +237,7 @@ void main() {
         ),
       );
 
-      await service.linkGoogle(idToken);
+      await service.linkGoogle(idToken, 'correct horse battery');
       await service.unlinkGoogle();
       final providers = await service.providers();
 
@@ -246,7 +246,10 @@ void main() {
         'DELETE /v1/me/oauth/google',
         'GET /v1/me',
       ]);
-      expect(jsonDecode(requests.first.body), {'idToken': idToken});
+      expect(jsonDecode(requests.first.body), {
+        'idToken': idToken,
+        'currentPassword': 'correct horse battery',
+      });
       expect(
         requests.map((r) => r.headers['authorization']),
         everyElement('Bearer access-d1'),
@@ -258,15 +261,21 @@ void main() {
   test('link errors become profile messages', () async {
     await store.save(session('d1'));
     const cases = {
-      409: ['already_linked', 'oauth_account_in_use', 'last_login_method'],
+      409: [
+        'already_linked',
+        'oauth_account_in_use',
+        'last_login_method',
+        'no_password',
+      ],
       404: ['not_linked'],
+      401: ['invalid_credentials'],
     };
     for (final MapEntry(key: status, value: codes) in cases.entries) {
       for (final code in codes) {
         final service = serviceAnswering((_) => problem(status, code));
 
         final failure = await service
-            .linkGoogle(idToken)
+            .linkGoogle(idToken, 'not the password')
             .then<AuthFailure?>(
               (_) => null,
               onError: (Object e) => e as AuthFailure,
