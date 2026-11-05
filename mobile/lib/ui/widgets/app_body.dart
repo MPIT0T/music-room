@@ -7,10 +7,12 @@ class AppScreenBody extends StatelessWidget {
     required this.child,
     this.maxWidth,
     this.fillHeight = false,
+    this.scrollable = true,
   });
 
   final Widget child;
   final bool fillHeight;
+  final bool scrollable;
   final double? maxWidth;
 
   @override
@@ -19,7 +21,10 @@ class AppScreenBody extends StatelessWidget {
       padding: const EdgeInsets.all(Space.screen),
       child: child,
     );
-    final Widget scroll = fillHeight
+
+    final Widget content = !scrollable
+        ? padd
+        : fillHeight
         ? CustomScrollView(
             slivers: [SliverFillRemaining(hasScrollBody: false, child: padd)],
           )
@@ -28,10 +33,10 @@ class AppScreenBody extends StatelessWidget {
     return SafeArea(
       child: Center(
         child: maxWidth == null
-            ? scroll
+            ? content
             : ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: scroll,
+                constraints: BoxConstraints(maxWidth: maxWidth!),
+                child: content,
               ),
       ),
     );

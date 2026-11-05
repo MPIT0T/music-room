@@ -82,3 +82,34 @@ test('framework errors and unknown routes use the same format', async (t) => {
   assertProblem(badJson, 400, 'bad_request');
   assertProblem(unknown, 404, 'not_found');
 });
+
+test('an unexpected SQL error is logged by its codes only, never with its values', async (t) => {
+  const { Writable } = await import('node:stream');
+  const { loggerOptions } = await import('../src/logger.js');
+  const chunks = [];
+  const stream = new Writable({
+    write(chunk, _enc, done) {
+      chunks.push(chunk.toString());
+      done();
+    },
+  });
+  const app = await buildApp({ pool: okPool, redis: okRedis, logger: loggerOptions({ stream }) });
+  t.after(() => app.close());
+  app.get('/v1/sql-bug', async () => {
+    const err = new Error("Data too long for column 'bio' at row 1: 'victim@example.com'");
+    Object.assign(err, {
+      errno: 1406,
+      code: 'ER_DATA_TOO_LONG',
+      sqlState: '22001',
+      sql: "UPDATE users SET email = 'victim@example.com'",
+    });
+    throw err;
+  });
+
+  const res = await app.inject({ url: '/v1/sql-bug' });
+
+  assertProblem(res, 500, 'internal_error');
+  const logs = chunks.join('');
+  assert.ok(logs.includes('ER_DATA_TOO_LONG'), 'the code is logged');
+  assert.ok(!logs.includes('victim@example.com'), 'a value reached the logs');
+});

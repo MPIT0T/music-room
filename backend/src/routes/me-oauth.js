@@ -3,10 +3,15 @@ import { withTransaction } from '../db/tx.js';
 import { HttpProblem, problemSchema } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { verifyGoogleIdToken } from '../auth/google.js';
+import { confirmCurrentPassword } from '../auth/current-password.js';
 import { loadMe } from '../users/profile.js';
 import { meSchema } from './me.js';
 
-const linkBody = z.object({ idToken: z.string().min(1).max(4096) });
+const linkBody = z.object({
+  idToken: z.string().min(1).max(4096),
+  // A stolen access token must not be enough to add the thief's Google account as a way in
+  currentPassword: z.string().min(1).max(128),
+});
 
 // Returns an outcome instead of throwing, like the sign-in: the caller maps it to a status
 async function linkGoogle(conn, userId, sub) {
@@ -46,6 +51,7 @@ export default async function meOauthRoutes(app) {
         tags: ['profile'],
         summary: 'Link a Google account to my account',
         description:
+          'Needs the current password (5 tries / 15 min). ' +
           'The Google email may differ from the account email. Idempotent: linking the same ' +
           'Google account again is a 200. 409 already_linked: another Google account is linked ' +
           '(unlink it first). 409 oauth_account_in_use: this Google account belongs to another user.',
@@ -55,11 +61,15 @@ export default async function meOauthRoutes(app) {
           200: meSchema,
           401: problemSchema,
           409: problemSchema,
+          429: problemSchema,
           503: problemSchema,
         },
       },
     },
     async (request) => {
+      // Before the password check: no point burning a try when linking cannot work
+      if (!app.googleVerifier.configured) throw new HttpProblem(503, 'oauth_unavailable');
+      await confirmCurrentPassword(app, request.userId, request.body.currentPassword);
       const claims = await verifyGoogleIdToken(app, request, request.body.idToken);
 
       let outcome;

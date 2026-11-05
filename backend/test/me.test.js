@@ -210,7 +210,7 @@ test('my own id gives relationship self', async () => {
 });
 
 test('unknown and malformed ids get the same 404', async () => {
-  for (const id of [randomUUID(), 'not-a-uuid', '1 OR 1=1']) {
+  for (const id of [randomUUID(), 'not-a-uuid', '1 OR 1=1', 'x'.repeat(90)]) {
     assertProblem(
       await call('GET', `/v1/users/${encodeURIComponent(id)}`, 'max'),
       404,
@@ -231,15 +231,34 @@ test('genres are listed by name', async () => {
   assert.ok(names.includes(`Jazz-${RUN}`));
 });
 
+test('PUT /v1/me/subscription switches the plan, idempotently', async () => {
+  const subscribe = (payload) => call('PUT', '/v1/me/subscription', 'pending', payload);
+  const plan = async () => (await call('GET', '/v1/me', 'pending')).json().plan;
+  assert.equal(await plan(), 'free');
+
+  for (const target of ['premium', 'premium', 'free', 'free']) {
+    const res = await subscribe({ plan: target });
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.body, '');
+    assert.equal(await plan(), target);
+  }
+
+  for (const payload of [{}, { plan: 'gold' }, { plan: 'premium', extra: 1 }]) {
+    assertProblem(await subscribe(payload), 400, 'validation_failed');
+  }
+  assert.equal(await plan(), 'free');
+});
+
 test('every profile route needs an access token', async () => {
   for (const [method, url] of [
     ['GET', '/v1/me'],
     ['PATCH', '/v1/me'],
     ['GET', `/v1/users/${users.max.id}`],
     ['GET', '/v1/genres'],
+    ['PUT', '/v1/me/subscription'],
   ]) {
     assertProblem(
-      await call(method, url, null, method === 'PATCH' ? {} : undefined),
+      await call(method, url, null, method === 'GET' ? undefined : {}),
       401,
       'unauthorized',
     );
@@ -252,4 +271,14 @@ test('the profile routes are documented', async () => {
   assert.ok(spec.paths['/v1/me']?.get && spec.paths['/v1/me']?.patch);
   assert.ok(spec.paths['/v1/users/{id}']?.get);
   assert.ok(spec.paths['/v1/genres']?.get);
+  assert.ok(spec.paths['/v1/me/subscription']?.put);
+});
+
+test('an empty phone clears it, like the other optional fields', async () => {
+  await patch('max', { phone: '+33 1 23 45 67 89' });
+
+  const res = await patch('max', { phone: '' });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().friends.phone, null);
 });

@@ -251,3 +251,27 @@ test('the login route is documented with its answers', async () => {
   const responses = Object.keys(spec.paths['/v1/sessions'].post.responses);
   for (const status of ['200', '401', '403', '429']) assert.ok(responses.includes(status), status);
 });
+
+test('20 wrong passwords sent at once: exactly 5 reach argon2, the rest get 429', async () => {
+  const ip = freshIp();
+  const body = credentials('limited0', 'wrong password');
+
+  const res = await Promise.all(Array.from({ length: 20 }, () => login(body, ip)));
+
+  const counts = res.reduce(
+    (acc, r) => ({ ...acc, [r.statusCode]: (acc[r.statusCode] ?? 0) + 1 }),
+    {},
+  );
+  assert.deepEqual(counts, { 401: 5, 429: 15 });
+});
+
+test('refused attempts do not raise the IP counter: other accounts on that IP still log in', async () => {
+  const ip = freshIp();
+  // 5 failures lock this IP + email; 30 more tries are all refused before argon2
+  for (let i = 0; i < 35; i++) await login(credentials('limited1', 'wrong password'), ip);
+
+  // The IP limit (8 in these tests) is not reached: only 5 attempts reached argon2
+  const other = await login(credentials('limited2'), ip);
+
+  assert.equal(other.statusCode, 200);
+});

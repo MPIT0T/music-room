@@ -4,10 +4,11 @@ import { HttpProblem, problemSchema } from '../errors.js';
 import { consumeEmailToken, issueEmailToken } from '../auth/email-tokens.js';
 import { requireAuth } from '../auth/guards.js';
 import { revokeUserSessions } from '../auth/sessions.js';
+import { confirmCurrentPassword } from '../auth/current-password.js';
 import { disconnectDevice, disconnectUser } from '../auth/sockets.js';
 import { sendInBackground } from '../mail/background.js';
 import { emailField, passwordField } from '../validation.js';
-import { rateLimit, tooManyRequests } from '../security/rate-limit.js';
+import { rateLimit } from '../security/rate-limit.js';
 
 const resetRequestBody = z.object({ email: emailField });
 
@@ -104,18 +105,7 @@ export default async function passwordsRoutes(app) {
     async (request, reply) => {
       const { currentPassword, newPassword } = request.body;
       const { userId, deviceId } = request;
-      const rule = app.limits.changePassword;
-
-      // Checked before argon2: once the limit is hit, even the right password is refused
-      const { allowed, retryAfter } = await app.rateLimiter.peek(rule, userId);
-      if (!allowed) throw tooManyRequests(retryAfter);
-
-      const [[user]] = await app.db.query('SELECT password_hash FROM users WHERE id = ?', [userId]);
-      if (!user?.password_hash) throw new HttpProblem(409, 'no_password');
-      if (!(await app.passwords.verify(user.password_hash, currentPassword))) {
-        await app.rateLimiter.consume(rule, userId);
-        throw new HttpProblem(401, 'invalid_credentials');
-      }
+      await confirmCurrentPassword(app, userId, currentPassword);
 
       const hash = await app.passwords.hash(newPassword);
       const revoked = await withTransaction(app.db, async (conn) => {
@@ -123,7 +113,6 @@ export default async function passwordsRoutes(app) {
         return revokeUserSessions(conn, userId, { exceptDeviceId: deviceId });
       });
 
-      await app.rateLimiter.reset(rule, userId);
       for (const id of revoked) disconnectDevice(app, id);
       request.log.info({ revokedDevices: revoked.length }, 'password changed');
       return reply.code(204).send();

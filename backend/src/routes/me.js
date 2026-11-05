@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { withTransaction } from '../db/tx.js';
-import { HttpProblem, problemSchema } from '../errors.js';
+import { HttpProblem, problemSchema, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
+import { rateLimit } from '../security/rate-limit.js';
+import { lockPlan, setPlan } from '../users/repo.js';
 import { loadMe, loadProfile } from '../users/profile.js';
 import { safeText } from '../validation.js';
 
@@ -56,7 +58,8 @@ const patchBody = z.strictObject({
     z
       .string()
       .trim()
-      .regex(/^[0-9 +().-]{3,30}$/, 'digits, spaces and + ( ) . - only'),
+      // '' is accepted here so that it can clear the field, like the other optional texts
+      .regex(/^([0-9 +().-]{3,30})?$/, 'digits, spaces and + ( ) . - only'),
   ),
   birthDate: z.iso
     .date()
@@ -69,6 +72,8 @@ const patchBody = z.strictObject({
     .refine((ids) => new Set(ids).size === ids.length, 'no duplicates')
     .optional(),
 });
+
+const subscriptionBody = z.strictObject({ plan: z.enum(['free', 'premium']) });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -157,6 +162,35 @@ export default async function meRoutes(app) {
     },
   );
 
+  const subscriptionSchema = {
+    tags: ['profile'],
+    summary: 'Change my plan',
+    description:
+      'Simulated subscription, no payment. Idempotent. Premium hosts private rooms, the ' +
+      'invited and place_time licences, beacons, and any number of rooms. Back on free, ' +
+      'existing rooms keep their settings: only new premium values are refused.',
+    security: [{ bearerAuth: [] }],
+    body: subscriptionBody,
+    response: { 204: z.null().describe('Plan set'), ...problems(400, 401, 429) },
+  };
+  const planLimit = rateLimit(app.limits.planChange, (request) => request.userId);
+
+  app.put(
+    '/v1/me/subscription',
+    { schema: subscriptionSchema, preHandler: planLimit },
+    async (request, reply) => {
+      const { plan } = request.body;
+      const previous = await withTransaction(app.db, async (conn) => {
+        const current = await lockPlan(conn, request.userId);
+        if (current == null) throw new HttpProblem(401, 'unauthorized');
+        if (current !== plan) await setPlan(conn, request.userId, plan);
+        return current;
+      });
+      if (previous !== plan) request.log.info({ from: previous, to: plan }, 'plan changed');
+      return reply.code(204).send();
+    },
+  );
+
   app.get(
     '/v1/users/:id',
     {
@@ -167,12 +201,13 @@ export default async function meRoutes(app) {
           'public always; friends only for yourself or an accepted friend (null otherwise); ' +
           'private never. Unknown and malformed ids get the same 404.',
         security: [{ bearerAuth: [] }],
-        params: z.object({ id: z.string().max(64) }),
+        params: z.object({ id: z.string() }),
         response: { 200: profileSchema, 401: problemSchema, 404: problemSchema },
       },
     },
     async (request) => {
       const id = request.params.id.toLowerCase();
+      // Malformed, too long or unknown: the same 404 (contract)
       const profile = UUID.test(id) ? await loadProfile(app.db, request.userId, id) : null;
       if (!profile) throw new HttpProblem(404, 'user_not_found');
       return profile;

@@ -1,5 +1,15 @@
 DC     := docker compose --project-directory . $(if $(wildcard .env),--env-file .env)
-DEV    := $(DC) -f infra/compose.yml -f infra/compose.dev.yml
+
+# Name of the computer the stack runs on: read at each run, since we move between
+# school computers and the home (.env included) follows us.
+HOST      := $(shell hostname -f 2>/dev/null || hostname)
+ENV_VALUE  = $(shell sed -n 's/^$(1)=//p' .env 2>/dev/null)
+comma     := ,
+# A value set in .env wins; empty, it is derived from HOST
+CORS_ORIGINS := $(or $(call ENV_VALUE,CORS_ORIGINS),http://localhost:5000$(comma)http://$(HOST):5000)
+APP_BASE_URL := $(or $(call ENV_VALUE,APP_BASE_URL),http://$(HOST):3000)
+
+DEV    := CORS_ORIGINS='$(CORS_ORIGINS)' APP_BASE_URL='$(APP_BASE_URL)' $(DC) -f infra/compose.yml -f infra/compose.dev.yml
 PROD   := $(DC) -f infra/compose.yml -f infra/compose.prod.yml
 
 # Stack currently running, read from the compose label of the api container (dev when none).
@@ -14,7 +24,7 @@ s   ?= connect
 vus ?= 50
 
 .DEFAULT_GOAL := help
-.PHONY: help doctor install add dev stop logs ps test lint format migrate seed shell db mobile load clean fclean re prod
+.PHONY: help doctor install add dev stop logs ps test lint format migrate seed shell db mobile share load clean fclean re prod
 
 help: ## Command list
 	@echo "Usage: make <target>"
@@ -103,6 +113,16 @@ mobile: ## Launches the flutter app (hot reload)
 	-@adb reverse tcp:3000 tcp:3000 >/dev/null 2>&1
 	@# Fixed web port: Google only accepts the origins declared in the OAuth client
 	cd mobile && flutter run --web-port 5000 --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
+
+share: ## Serves the built web app to the other school computers (stop make mobile first)
+	cd mobile && flutter build web --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
+	@echo
+	@echo "From another computer: http://$(HOST):5000   (API: http://$(HOST):3000)"
+	@echo "Chrome there needs chrome://flags/#unsafely-treat-insecure-origin-as-secure"
+	@echo "set to http://$(HOST):5000, else the session is not kept. Google: localhost only."
+	@echo
+	@# Static files only; the web app calls the API on the computer that served it
+	python3 -m http.server 5000 --bind 0.0.0.0 --directory mobile/build/web
 
 load: ## Load test against the prod stack: make load s=connect vus=200
 	$(if $(IS_PROD),,$(error the load test needs the prod stack: make stop, then make prod))

@@ -1,10 +1,12 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:music_room/core/app_storage.dart';
 
-/// Tokens and deviceId of this install. Keychain / Keystore on mobile; on web,
-/// encrypted in the browser storage, readable by an XSS like anything in the page.
+/// Tokens and deviceId of this install. Keychain / Keystore on mobile; on web, the
+/// browser storage (encrypted on secure pages, plain over http: see app_storage_web),
+/// readable by an XSS like anything in the page.
 class SessionStore {
   SessionStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? appStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -20,11 +22,13 @@ class SessionStore {
 
   /// Stores a `session` object of the contract (login, OAuth, refresh).
   Future<void> save(Map<String, dynamic> session) async {
-    await _storage.write(key: _access, value: session['accessToken'] as String);
+    // Refresh token first: the server already rotated it, so if the app dies mid-save the new
+    // one must be the one kept. The old one, replayed later, would look stolen and revoke us.
     await _storage.write(
       key: _refresh,
       value: session['refreshToken'] as String,
     );
+    await _storage.write(key: _access, value: session['accessToken'] as String);
     await _storage.write(key: _device, value: session['deviceId'] as String);
   }
 

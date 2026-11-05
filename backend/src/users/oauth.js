@@ -13,7 +13,7 @@ export async function signInWithGoogle(conn, { sub, email, emailVerified, name }
 
   // Rule 2: a local account with the same email. FOR UPDATE: two sign-ins cannot both link it.
   const [[local]] = await conn.query(
-    `SELECT id, email_verified_at,
+    `SELECT id, email_verified_at, password_hash IS NOT NULL AS has_password,
             (SELECT o.provider_user_id FROM oauth_accounts o
              WHERE o.user_id = users.id AND o.provider = 'google') AS google_sub
      FROM users WHERE email = ? FOR UPDATE`,
@@ -23,6 +23,12 @@ export async function signInWithGoogle(conn, { sub, email, emailVerified, name }
     // Linked meanwhile by a concurrent sign-in with this same Google account
     if (local.google_sub === sub) return { outcome: 'login', userId: local.id };
     if (local.google_sub) return { outcome: 'already_linked' };
+    // A password exists: whoever set it may not be this Google user (someone can sign up with
+    // the victim's email and wait for the victim to click the verification link). Linking here
+    // would keep that password working. The owner logs in with it, then links from the profile.
+    if (local.email_verified_at && local.has_password) {
+      return { outcome: 'password_login_required' };
+    }
     if (!local.email_verified_at) {
       // Pre-hijacking: whoever chose this password never proved owning the address
       await conn.query(

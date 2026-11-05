@@ -51,6 +51,8 @@ class ApiClient {
 
   Future<bool>? _refreshing;
 
+  static const _timeout = Duration(seconds: 15);
+
   String get _baseUrl => _baseUrlOf();
 
   Future<ApiResponse> get(String path, {bool auth = true}) =>
@@ -146,8 +148,14 @@ class ApiClient {
       request.body = jsonEncode(body);
     }
     try {
-      return await http.Response.fromStream(await _http.send(request));
-    } on http.ClientException {
+      // A request that never answers must not freeze the app: a stuck refresh would hold
+      // every authenticated call waiting on it
+      return await http.Response.fromStream(await _http.send(request))
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw const ApiException(0, 'network_error');
+    } on Exception {
+      // ClientException, TLS handshake, DNS...: for the user, the server is unreachable
       throw const ApiException(0, 'network_error');
     }
   }

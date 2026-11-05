@@ -1,10 +1,12 @@
-# Contrat d'API : authentification (v1.2)
+# Contrat d'API : authentification (v1.3)
 
 Statut : **proposition, phase 1**. Toute modification de ce contrat passe par une PR.
 
 v1.1 : `User-Agent` normalisé, limite sur le renvoi d'email, profil (`/v1/me`), changement de mot de passe, liaison Google, appareils.
 
 Révision v1.1 : `deviceId` à la connexion, pour qu'un appareil qui se reconnecte garde sa ligne `devices` et ses délégations.
+
+v1.3 (sécurité) : plus de liaison Google automatique vers un compte qui a un mot de passe (`409 password_login_required`) ; `PUT /v1/me/oauth/google` exige `currentPassword`.
 
 v1.2 : liste des genres (`GET /v1/genres`), profil d'un autre utilisateur filtré par ACC-8 (`GET /v1/users/:id`), règles précises de `bio`, `phone` et `birthDate`.
 
@@ -236,7 +238,9 @@ Le serveur vérifie la signature Google, `iss`, `exp`, et que `aud` est l'un de 
 Règles de liaison de compte :
 
 1. Compte Google déjà lié → connexion.
-2. Sinon, si l'email Google est vérifié (`email_verified`) et qu'un compte local a le même email → le compte Google y est lié. Si l'email de ce compte local n'était pas vérifié, son mot de passe est **supprimé** (protection contre le pré-détournement : quelqu'un aurait pu créer le compte avec l'email de la victime avant elle).
+2. Sinon, si l'email Google est vérifié (`email_verified`) et qu'un compte local a le même email :
+   - email du compte local **non vérifié** → le compte Google y est lié et son mot de passe est **supprimé** (pré-détournement : quelqu'un aurait pu créer le compte avec l'email de la victime avant elle) ;
+   - email **vérifié** et compte **avec mot de passe** → **pas de liaison automatique** : `409 password_login_required`. Rien ne prouve que ce mot de passe a été choisi par le propriétaire de l'email (l'attaquant peut attendre que la victime clique le lien de vérification). L'utilisateur se connecte avec son mot de passe (ou le réinitialise, ce qui révoque celui de l'attaquant) puis lie Google depuis son profil (`PUT /v1/me/oauth/google`).
 3. Sinon → nouveau compte, email marqué vérifié, `displayName` = nom Google.
 
 | Status | `code` | Quand |
@@ -244,6 +248,7 @@ Règles de liaison de compte :
 | 400 | `unsupported_provider` | `provider` ≠ `google` |
 | 401 | `invalid_oauth_token` | signature, expiration ou audience invalide |
 | 403 | `oauth_email_not_verified` | Google indique un email non vérifié |
+| 409 | `password_login_required` | un compte avec mot de passe utilise déjà cet email (règle 2) |
 | 409 | `already_linked` | l'email Google est celui d'un compte qui a déjà un **autre** compte Google lié |
 | 503 | `oauth_unavailable` | client ID non configuré côté serveur, ou clés publiques de Google injoignables |
 
@@ -409,8 +414,10 @@ ou, pour un compte sans mot de passe :
 ### `PUT /v1/me/oauth/google` : lier un compte Google
 
 ```json
-{ "idToken": "eyJhbGciOiJSUzI1NiIs..." }
+{ "idToken": "eyJhbGciOiJSUzI1NiIs...", "currentPassword": "correct horse battery" }
 ```
+
+`currentPassword` est obligatoire : un access token volé ne doit pas suffire à ajouter le compte Google de l'attaquant comme moyen de connexion permanent. Les essais comptent dans la même limite que `PUT /v1/me/password` (5 échecs / 15 min par utilisateur).
 
 L'ID token est vérifié comme pour `POST /v1/sessions/oauth`. L'email du compte Google peut être différent de celui du compte Music Room.
 
@@ -418,9 +425,13 @@ L'ID token est vérifié comme pour `POST /v1/sessions/oauth`. L'email du compte
 
 | Status | `code` | Quand |
 |---|---|---|
+| 401 | `invalid_credentials` | `currentPassword` incorrect |
 | 401 | `invalid_oauth_token` | signature, expiration ou audience invalide |
+| 409 | `no_password` | compte sans mot de passe : en définir un via `POST /v1/password-resets` |
 | 409 | `already_linked` | un **autre** compte Google est déjà lié à ce compte : le délier d'abord |
 | 409 | `oauth_account_in_use` | ce compte Google est lié à un autre utilisateur |
+| 429 | `rate_limited` | 5 échecs / 15 min par utilisateur |
+| 503 | `oauth_unavailable` | client ID non configuré, ou clés de Google injoignables |
 
 ### `DELETE /v1/me/oauth/google` : délier Google
 
@@ -430,6 +441,34 @@ L'ID token est vérifié comme pour `POST /v1/sessions/oauth`. L'email du compte
 |---|---|---|
 | 404 | `not_linked` | aucun compte Google lié |
 | 409 | `last_login_method` | le compte n'a pas de mot de passe : délier l'empêcherait de se reconnecter. Définir d'abord un mot de passe via `POST /v1/password-resets` |
+
+### `PUT /v1/me/subscription` : changer d'abonnement
+
+```json
+{ "plan": "premium" }
+```
+
+Abonnement **simulé**, sans paiement. **Réponse `204`**, idempotent. Le plan se lit dans `GET /v1/me` (`plan`).
+
+| | Free | Premium |
+|---|---|---|
+| Rejoindre une room, voter, proposer un morceau | oui | oui |
+| Rooms possédées | 1 | illimité |
+| Room privée, licences `invited` et `place_time`, beacon | non | oui |
+
+Repasser en free ne casse rien : les rooms existantes gardent leurs réglages. Seules les **nouvelles** valeurs premium sont refusées (`POST` et `PATCH /v1/rooms`), et redescendre une room (publique, sans beacon) reste toujours permis.
+
+| Status | `code` | Quand |
+|---|---|---|
+| 400 | `validation_failed` | `plan` absent ou inconnu |
+| 429 | `rate_limited` | 20 changements / heure par utilisateur |
+
+Erreurs côté rooms pour un compte free :
+
+| Status | `code` | Quand |
+|---|---|---|
+| 403 | `premium_required` | valeur premium demandée ; `errors[].path` liste les champs (`visibility`, `accessPolicy`, `beaconMinor`) |
+| 403 | `room_limit_reached` | `POST /v1/rooms` alors qu'il possède déjà une room |
 
 ---
 
@@ -538,6 +577,8 @@ io(APP_BASE_URL, { auth: { token: accessToken } });
 
 En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnecte avec le nouveau token. Le token n'est vérifié qu'au handshake : une connexion déjà ouverte n'est pas coupée quand l'access token expire, mais elle l'est à la déconnexion (`DELETE /v1/sessions/current`, `DELETE /v1/me/devices/:id`), au changement ou à la réinitialisation du mot de passe, et à la suppression du compte.
 
+**Limite connue** : le handshake ne vérifie que l'access token. Un client qui le détient encore peut se reconnecter après une coupure, jusqu'à son expiration (≤ 15 min), comme il peut encore appeler l'API pendant ce délai. Ce délai borne l'exposition ; le refresh, lui, est révoqué immédiatement.
+
 ## Récapitulatif
 
 | Méthode | Route | Auth | Succès |
@@ -557,6 +598,7 @@ En cas de `connect_error: unauthorized`, l'app fait un refresh puis se reconnect
 | PUT | `/v1/me/password` | Bearer | 204 |
 | PUT | `/v1/me/oauth/google` | Bearer | 200 `me` |
 | DELETE | `/v1/me/oauth/google` | Bearer | 200 `me` |
+| PUT | `/v1/me/subscription` | Bearer | 204 |
 | GET | `/v1/me/devices` | Bearer | 200 |
 | PATCH | `/v1/me/devices/:id` | Bearer | 200 `device` |
 | DELETE | `/v1/me/devices/:id` | Bearer | 204 |

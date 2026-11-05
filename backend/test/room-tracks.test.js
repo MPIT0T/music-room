@@ -23,7 +23,7 @@ const fakeIo = {
 };
 
 async function createUser(name) {
-  const [[row]] = await app.db.query('INSERT INTO users (display_name) VALUES (?) RETURNING id', [
+  const [[row]] = await app.db.query("INSERT INTO users (display_name) VALUES (?, 'premium') RETURNING id", [
     `queue-${RUN}-${name}`,
   ]);
   // A real devices row: the playing device of a room is looked up for delegations

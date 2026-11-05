@@ -181,6 +181,9 @@
         border-color: var(--err);
         color: #fff;
       }
+      button.plan.premium {
+        color: #d4a017;
+      }
       button.small {
         padding: 2px 8px;
         font-size: 12px;
@@ -1160,6 +1163,19 @@
               ),
               el('button', {
                 type: 'button',
+                className: `small plan${user.plan === 'premium' ? ' premium' : ''}`,
+                textContent: user.plan === 'premium' ? '★' : '☆',
+                title:
+                  user.plan === 'premium'
+                    ? 'Premium : clic pour repasser en free'
+                    : 'Free (ou inconnu) : clic pour passer premium',
+                onclick: (event) => {
+                  event.stopPropagation();
+                  togglePlan(user);
+                },
+              }),
+              el('button', {
+                type: 'button',
                 className: 'small',
                 textContent: '📋',
                 title: 'Copier son access token (pour Swagger)',
@@ -1227,6 +1243,16 @@
         save();
         renderUsers();
         renderSockets();
+      }
+
+      // Simulated subscription: PUT /v1/me/subscription, no payment
+      async function togglePlan(user) {
+        const plan = user.plan === 'premium' ? 'free' : 'premium';
+        const res = await call('PUT', '/v1/me/subscription', { body: { plan }, user });
+        if (res.status !== 204) return;
+        user.plan = plan;
+        save();
+        renderUsers();
       }
 
       async function copyToken(user) {

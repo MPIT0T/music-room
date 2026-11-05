@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:music_room/rooms/rooms_service.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/data/models/room.dart';
+import 'package:music_room/core/rooms_service.dart';
+import 'package:music_room/core/services.dart';
 
 class CreateRoomScreen extends StatefulWidget {
   const CreateRoomScreen({super.key});
@@ -15,6 +16,8 @@ class CreateRoomScreen extends StatefulWidget {
 class _CreateRoomScreenState extends State<CreateRoomScreen> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _descritpion = TextEditingController();
+
+  final RoomService _service = roomService;
   RoomVisibility _visibility = .public;
   AccessPolicy _policy = .everyone;
   bool _isLoading = false;
@@ -27,14 +30,13 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
   Future<void> _submit() async {
     try {
       setState(() => _isLoading = true);
-      final Room res = await roomService.createRoom(
+      final Room res = await _service.createRoom(
         _name.text,
         _visibility,
         _policy,
         description: _descritpion.text.trim(),
       );
-      if (!mounted) return;
-      context.pushReplacement('/rooms/${res.id}');
+      if (mounted) context.pushReplacement('/rooms/${res.id}');
     } on RoomFailure catch (e) {
       if (mounted) _showError(context, e.message);
     } finally {

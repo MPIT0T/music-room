@@ -24,7 +24,7 @@ export default async function playgroundRoutes(app) {
   // Stand-in for login until POST /v1/sessions exists: creates a user with no email or password
   app.post('/dev/users', { schema: { hide: true, body: devUserBody } }, async (request, reply) => {
     const [[user]] = await app.db.query(
-      'INSERT INTO users (display_name) VALUES (?) RETURNING id, display_name',
+      'INSERT INTO users (display_name) VALUES (?) RETURNING id, display_name, plan',
       [request.body.displayName],
     );
     const accessToken = await app.tokens.signAccessToken({
@@ -32,7 +32,7 @@ export default async function playgroundRoutes(app) {
       deviceId: randomUUID(),
     });
     return reply.code(201).send({
-      user: { id: user.id, displayName: user.display_name },
+      user: { id: user.id, displayName: user.display_name, plan: user.plan },
       accessToken,
     });
   });

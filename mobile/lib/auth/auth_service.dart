@@ -29,6 +29,9 @@ class AuthService {
     'already_linked':
         'This email belongs to an account linked to another Google account.',
     'oauth_unavailable': 'Google sign-in is unavailable right now.',
+    'password_login_required':
+        'An account already uses this email. Log in with your password, then link Google '
+        'from your profile.',
     'network_error': 'Cannot reach the server. Check your connection.',
     'invalid_credentials': 'Wrong email or password.',
     'email_not_verified': 'Verify your email first: check your inbox.',
@@ -121,12 +124,18 @@ class AuthService {
     'oauth_account_in_use':
         'This Google account is already used by another Music Room account.',
     'not_linked': 'No Google account is linked.',
+    'invalid_credentials': 'Wrong password.',
+    'no_password': 'Set a password first (Forgot password), then link Google.',
     'last_login_method': 'Set a password first (Forgot password), or you could not log in any more.',
   };
 
   /// Links a Google account to the signed-in account (PUT /v1/me/oauth/google, subject V.1).
-  Future<void> linkGoogle(String idToken) => _linkCall(
-    () => _api.putJson('/v1/me/oauth/google', {'idToken': idToken}),
+  /// The current password is required: a stolen session alone cannot add a way in.
+  Future<void> linkGoogle(String idToken, String currentPassword) => _linkCall(
+    () => _api.putJson('/v1/me/oauth/google', {
+      'idToken': idToken,
+      'currentPassword': currentPassword,
+    }),
   );
 
   Future<void> unlinkGoogle() =>
