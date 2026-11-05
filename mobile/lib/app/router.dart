@@ -77,7 +77,9 @@ abstract final class AppRouterConfig {
                     routes: [
                       GoRoute(
                         path: ':userId',
-                        builder: (context, state) => const UserProfileScreen(),
+                        builder: (context, state) => UserProfileScreen(
+                          userId: state.pathParameters['userId']!,
+                        ),
                       ),
                     ],
                   ),

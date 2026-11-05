@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:music_room/core/services.dart';
 import 'package:music_room/data/models/profile.dart';
 import 'package:music_room/profile/profile_service.dart';
+import 'package:music_room/ui/screens/profile/profile_header.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 
@@ -64,7 +65,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (me == null) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                return _summary(me, tt);
+                return ProfileHeader(
+                  displayName: me.displayName,
+                  bio: me.bio,
+                  genres: me.genres,
+                  premium: me.plan == Plan.premium,
+                );
               },
             ),
             const Spacer(),
@@ -92,29 +98,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _summary(Me me, TextTheme tt) {
-    return Column(
-      children: [
-        AppAvatar(label: me.displayName),
-        const SizedBox(height: Space.md),
-        Text(me.displayName, style: tt.titleLarge),
-        if (me.plan == Plan.premium)
-          const Chip(avatar: Icon(Icons.star_outline), label: Text('Premium')),
-        if (me.bio != null) ...[
-          const SizedBox(height: Space.sm),
-          Text(me.bio!, textAlign: TextAlign.center),
-        ],
-        const SizedBox(height: Space.md),
-        Wrap(
-          spacing: Space.sm,
-          runSpacing: Space.sm,
-          alignment: .center,
-          children: [for (final g in me.genres) Chip(label: Text(g.name))],
-        ),
-      ],
     );
   }
 }
