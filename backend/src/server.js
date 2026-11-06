@@ -9,6 +9,7 @@ const io = socketSetup(app.server, {
   db: app.db,
   log: app.log,
   devTools: app.devTools,
+  redis: app.redis,
 });
 
 app.decorate('io', io);

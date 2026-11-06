@@ -18,6 +18,8 @@ export const limits = {
   friendRequest: { name: 'friend-request', limit: 30, windowSeconds: 60 * 60 },
   // Friend searching
   userSearch: { name: 'user-search', limit: 30, windowSeconds: 60 },
+  // play / pause / skip / seek
+  playbackControl: { name: 'playback-control', limit: 120, windowSeconds: 60 },
   // Plan switches are simulated (no payment): enough to try both plans, not to hammer the route
   planChange: { name: 'plan-change', limit: 20, windowSeconds: 60 * 60 },
 };
