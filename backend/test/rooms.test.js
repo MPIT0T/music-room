@@ -14,7 +14,12 @@ const users = {};
 const sent = [];
 const fakeIo = {
   to: (channel) => ({ emit: (event, data) => sent.push({ to: channel, event, data }) }),
-  in: (target) => ({ socketsLeave: (channel) => sent.push({ in: target, leave: channel }) }),
+  in: (target) => ({
+    socketsLeave: (channel) => sent.push({ in: target, leave: channel }),
+    except: (kept) => ({
+      socketsLeave: (channel) => sent.push({ in: target, except: kept, leave: channel }),
+    }),
+  }),
 };
 
 // Premium unless said otherwise: most tests are about rooms, not plans
@@ -339,6 +344,39 @@ test('PATCH /v1/rooms/:id tells subscribers, only once the write succeeded', asy
     400,
   );
   assert.deepEqual(sent, []);
+});
+
+test('PATCH to private: only the owner and members stay subscribed', async () => {
+  const created = (await createRoom(users.owner, { name: 'Going private' })).json();
+  await app.db.query('INSERT INTO room_members (room_id, user_id) VALUES (?, ?)', [
+    created.id,
+    users.guest.id,
+  ]);
+
+  const res = await patchRoom(users.owner, created.id, { visibility: 'private' }, '"0"');
+  assert.equal(res.statusCode, 200);
+  const channel = `room:${created.id}`;
+  // The change goes out first, so a stranger's app refetches and finds the room gone
+  assert.deepEqual(sent, [
+    {
+      to: channel,
+      event: 'room.changed',
+      data: { roomId: created.id, version: 1, change: 'settings' },
+    },
+    {
+      in: channel,
+      except: [`user:${users.owner.id}`, `user:${users.guest.id}`],
+      leave: channel,
+    },
+  ]);
+
+  // Already private: nobody left to remove
+  sent.length = 0;
+  assert.equal(
+    (await patchRoom(users.owner, created.id, { name: 'Still' }, '"1"')).statusCode,
+    200,
+  );
+  assert.ok(sent.every((entry) => entry.leave == null));
 });
 
 test('PATCH /v1/rooms/:id can clear the description and switch to place_time', async () => {

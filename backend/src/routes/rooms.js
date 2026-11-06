@@ -3,13 +3,14 @@ import { HttpProblem, problems } from '../errors.js';
 import { requireAuth } from '../auth/guards.js';
 import { withTransaction } from '../db/tx.js';
 import { canManage } from '../rooms/access.js';
-import { closeRoomChannel, emitRoomChanged } from '../rooms/events.js';
+import { closeRoomChannel, emitRoomChanged, keepOnlyUsersInChannel } from '../rooms/events.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
 import {
   countOwnedRooms,
   deleteRoom,
   findRoomByBeacon,
   insertRoom,
+  listMembers,
   listVisibleRooms,
   updateRoom,
 } from '../rooms/repo.js';
@@ -141,7 +142,8 @@ export default async function roomsRoutes(app) {
       'Owner only. Send only the fields to change, and the ETag from GET in If-Match: ' +
       '428 without it, 412 if the room changed since. Returns the room with its new ETag. ' +
       '409 beacon_taken if another room already uses `beaconMinor`. Subscribers then ' +
-      'receive `room.changed` with `change: "settings"` and the new version. A free owner ' +
+      'receive `room.changed` with `change: "settings"` and the new version; when the room ' +
+      'turns private, sockets of users who are neither owner nor member then leave it. A free owner ' +
       'gets 403 premium_required when setting a premium value (private, invited, place_time, ' +
       'beacon); values already stored are kept, so a room made on premium stays as it is.',
     security: [{ bearerAuth: [] }],
@@ -174,6 +176,10 @@ export default async function roomsRoutes(app) {
     if (room == null) throw stale();
 
     emitRoomChanged(app.io, room, 'settings');
+    if (visible.room.visibility === 'public' && room.visibility === 'private') {
+      const members = await listMembers(app.db, room.id);
+      keepOnlyUsersInChannel(app.io, room.id, [room.ownerId, ...members.map((m) => m.userId)]);
+    }
     return reply.header('etag', etag(room)).send(room);
   });
 
