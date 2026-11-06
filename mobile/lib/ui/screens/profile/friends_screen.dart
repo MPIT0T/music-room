@@ -2,16 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_room/core/realtime_service.dart';
 import 'package:music_room/core/services.dart';
 import 'package:music_room/data/models/friend.dart';
 import 'package:music_room/friends/friends_service.dart';
 import 'package:music_room/ui/theme/tokens.dart';
 
 class FriendsScreen extends StatefulWidget {
-  // The service can be swapped in tests; the app uses the shared one
-  const FriendsScreen({super.key, this.service});
+  // The service and the events can be swapped in tests; the app uses the shared ones
+  const FriendsScreen({super.key, this.service, this.events});
 
   final FriendsService? service;
+  final Stream<RealtimeEvent>? events;
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -25,6 +27,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
   List<FriendRequest> _outgoing = [];
   bool _loading = true;
   String? _error;
+  int _lastLoad = 0;
+
+  late final StreamSubscription<RealtimeEvent> _eventsSub;
+  Timer? _reloadTimer;
 
   final _searchField = TextEditingController();
   List<SearchResult> _results = [];
@@ -35,10 +41,16 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void initState() {
     super.initState();
     _load();
+    // Sent to both users when a request is sent, accepted, declined or removed
+    _eventsSub = (widget.events ?? realtimeService.events)
+        .where((e) => e.event == 'friends.changed' || e.event == 'reconnected')
+        .listen((_) => _scheduleReload());
   }
 
   @override
   void dispose() {
+    _eventsSub.cancel();
+    _reloadTimer?.cancel();
     _debounce?.cancel();
     _searchField.dispose();
     super.dispose();
@@ -70,14 +82,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e.message)));
 
+  // A burst of events ends in a single reload
+  void _scheduleReload() {
+    _reloadTimer?.cancel();
+    _reloadTimer = Timer(const Duration(milliseconds: 300), _reload);
+  }
+
   Future<void> _load() async {
+    final load = ++_lastLoad;
     try {
       // Both calls run at the same time; the screen waits for the slower one
       final (friends, requests) = await (
         _service.list(),
         _service.requests(),
       ).wait;
-      if (!mounted) return;
+      // A newer request was sent meanwhile: its answer is the one to keep
+      if (!mounted || load != _lastLoad) return;
       setState(() {
         _friends = friends;
         _incoming = requests.incoming;
@@ -85,7 +105,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         _error = null;
       });
     } on FriendsFailure catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && load == _lastLoad) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

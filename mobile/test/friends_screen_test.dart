@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:music_room/core/realtime_service.dart';
 import 'package:music_room/data/models/friend.dart';
 import 'package:music_room/friends/friends_service.dart';
 import 'package:music_room/ui/screens/profile/friends_screen.dart';
@@ -16,9 +19,13 @@ class FakeFriendsService implements FriendsService {
   final outgoing = <FriendRequest>[];
   final actions = <String>[];
   FriendsFailure? failure;
+  var loads = 0;
 
   @override
-  Future<List<UserSummary>> list() async => List.of(friends);
+  Future<List<UserSummary>> list() async {
+    loads++;
+    return List.of(friends);
+  }
 
   @override
   Future<FriendRequests> requests() async =>
@@ -57,11 +64,21 @@ class FakeFriendsService implements FriendsService {
 
 void main() {
   late FakeFriendsService service;
+  late StreamController<RealtimeEvent> events;
 
-  setUp(() => service = FakeFriendsService());
+  setUp(() {
+    service = FakeFriendsService();
+    events = StreamController<RealtimeEvent>.broadcast();
+  });
+
+  tearDown(() => events.close());
 
   Future<void> open(WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: FriendsScreen(service: service)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FriendsScreen(service: service, events: events.stream),
+      ),
+    );
     await tester.pumpAndSettle(); // waits for _load
   }
 
@@ -125,5 +142,38 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Add'));
     await tester.pumpAndSettle();
     expect(service.actions, ['add n1']);
+  });
+
+  testWidgets('a request sent from another account shows up by itself', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(find.text('Nina'), findsNothing);
+
+    service.incoming.add(
+      FriendRequest(
+        user: const UserSummary(userId: 'n1', displayName: 'Nina'),
+        createdAt: DateTime.utc(2026, 11, 6),
+      ),
+    );
+    events.add(RealtimeEvent(event: 'friends.changed'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nina'), findsOneWidget);
+  });
+
+  testWidgets('a burst of events ends in a single reload', (tester) async {
+    await open(tester);
+    final before = service.loads;
+
+    events
+      ..add(RealtimeEvent(event: 'friends.changed'))
+      ..add(RealtimeEvent(event: 'friends.changed'))
+      ..add(RealtimeEvent(event: 'room.changed')); // not about friends
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(service.loads, before + 1);
   });
 }
