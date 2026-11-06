@@ -74,3 +74,54 @@ class Me {
     );
   }
 }
+
+/// How the signed-in user relates to the profile they are looking at.
+enum Relationship { self, friend, none }
+
+/// Another user's profile (GET /v1/users/:id), already filtered by the server:
+/// never the private group, and the friends group only for a friend or yourself.
+class UserProfile {
+  const UserProfile({
+    required this.id,
+    required this.relationship,
+    required this.displayName,
+    required this.genres,
+    required this.friendsVisible,
+    this.avatarUrl,
+    this.bio,
+    this.city,
+    this.phone,
+  });
+
+  final String id;
+  final Relationship relationship;
+
+  // Public
+  final String displayName;
+  final String? avatarUrl;
+  final String? bio;
+  final List<Genre> genres;
+
+  // Friends only: empty unless [friendsVisible]
+  final bool friendsVisible;
+  final String? city;
+  final String? phone;
+
+  factory UserProfile.fromJson(Map<String, dynamic> j) {
+    final public = j['public'] as Map<String, dynamic>;
+    final friends = j['friends'] as Map<String, dynamic>?;
+    return UserProfile(
+      id: j['id'] as String,
+      relationship: Relationship.values.byName(j['relationship'] as String),
+      displayName: public['displayName'] as String,
+      avatarUrl: public['avatarUrl'] as String?,
+      bio: public['bio'] as String?,
+      genres: (public['genres'] as List)
+          .map((g) => Genre.fromJson(g as Map<String, dynamic>))
+          .toList(),
+      friendsVisible: friends != null,
+      city: friends?['city'] as String?,
+      phone: friends?['phone'] as String?,
+    );
+  }
+}

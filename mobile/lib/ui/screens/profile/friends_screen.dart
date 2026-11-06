@@ -95,11 +95,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _act(Future<void> Function() action) async {
     try {
       await action();
-      await _load();
-      if (_results.isNotEmpty) await _search();
+      await _reload();
     } on FriendsFailure catch (e) {
       if (mounted) _showError(e);
     }
+  }
+
+  Future<void> _reload() async {
+    await _load();
+    if (_results.isNotEmpty) await _search();
+  }
+
+  // The friendship can change on the profile page: the lists are reloaded on return
+  Future<void> _openProfile(UserSummary user) async {
+    await context.push('/profile/friends/${user.userId}');
+    if (mounted) await _reload();
   }
 
   Future<void> _confirmRemove(UserSummary friend) async {
@@ -147,6 +157,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ListTile(
                       leading: _avatar(r.user),
                       title: Text(r.user.displayName),
+                      onTap: () => _openProfile(r.user),
                       trailing: _searchAction(r),
                     ),
                   const SizedBox(height: Space.section),
@@ -165,6 +176,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       ListTile(
                         leading: _avatar(r.user),
                         title: Text(r.user.displayName),
+                        onTap: () => _openProfile(r.user),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -191,6 +203,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       ListTile(
                         leading: _avatar(r.user),
                         title: Text(r.user.displayName),
+                        onTap: () => _openProfile(r.user),
                         trailing: TextButton(
                           onPressed: () =>
                               _act(() => _service.remove(r.user.userId)),
@@ -212,7 +225,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ListTile(
                       leading: _avatar(f),
                       title: Text(f.displayName),
-                      onTap: () => context.go('/profile/friends/${f.userId}'),
+                      onTap: () => _openProfile(f),
                       trailing: IconButton(
                         tooltip: 'Remove',
                         icon: const Icon(Icons.person_remove_outlined),

@@ -11,6 +11,8 @@ class AppInput extends StatelessWidget {
     this.autofillHints,
     this.validator,
     this.onFieldSubmit,
+    this.maxLength,
+    this.maxLines = 1,
   });
 
   final String label;
@@ -20,6 +22,10 @@ class AppInput extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final String? Function(String?)? validator;
   final void Function(String)? onFieldSubmit;
+
+  /// Shows a counter and stops typing at this length.
+  final int? maxLength;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +44,8 @@ class AppInput extends StatelessWidget {
           autofillHints: autofillHints,
           validator: validator,
           onFieldSubmitted: onFieldSubmit,
+          maxLength: maxLength,
+          maxLines: maxLines,
         ),
       ],
     );

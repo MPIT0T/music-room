@@ -70,6 +70,12 @@ class ApiClient {
     bool auth = true,
   }) => send('PUT', path, body: body, auth: auth);
 
+  Future<ApiResponse> patchJson(
+    String path,
+    Map<String, Object?> body, {
+    bool auth = true,
+  }) => send('PATCH', path, body: body, auth: auth);
+
   Future<ApiResponse> delete(String path, {bool auth = true}) =>
       send('DELETE', path, auth: auth);
 

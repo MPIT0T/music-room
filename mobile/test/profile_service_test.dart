@@ -93,6 +93,73 @@ void main() {
     expect(jsonDecode(requests.single.body), {'plan': 'premium'});
   });
 
+  test('user keeps only what the server sends of another profile', () async {
+    final service = serviceAnswering(
+      (_) => json(200, {
+        'id': 'u2',
+        'relationship': 'none',
+        'public': {
+          'displayName': 'Nina',
+          'avatarUrl': null,
+          'bio': null,
+          'genres': <Object>[],
+        },
+        'friends': null,
+      }),
+    );
+
+    final user = await service.user('u2');
+
+    expect(requests.single.url.path, '/v1/users/u2');
+    expect(user.relationship, Relationship.none);
+    expect(user.displayName, 'Nina');
+    expect(user.friendsVisible, isFalse);
+    expect(user.city, isNull);
+  });
+
+  test('update sends the whole form and returns the saved account', () async {
+    final service = serviceAnswering((_) => json(200, meJson));
+
+    final me = await service.update(
+      displayName: 'Max',
+      bio: 'Jazz at night',
+      city: 'Lyon',
+      phone: '',
+      realName: '',
+      birthDate: null,
+      genreIds: [5],
+    );
+
+    expect(requests.single.method, 'PATCH');
+    expect(requests.single.url.path, '/v1/me');
+    expect(jsonDecode(requests.single.body), {
+      'displayName': 'Max',
+      'bio': 'Jazz at night',
+      'city': 'Lyon',
+      'phone': '',
+      'realName': '',
+      'birthDate': null,
+      'genreIds': [5],
+    });
+    expect(me.city, 'Lyon');
+  });
+
+  test('genres lists the genres of the API', () async {
+    final service = serviceAnswering(
+      (_) => json(200, {
+        'genres': [
+          {'id': 5, 'name': 'Jazz'},
+          {'id': 2, 'name': 'Rock'},
+        ],
+      }),
+    );
+
+    final genres = await service.genres();
+
+    expect(requests.single.url.path, '/v1/genres');
+    expect(genres.map((g) => g.name), ['Jazz', 'Rock']);
+  });
+
   test('errors become a ProfileFailure with a readable message', () async {
     final service = serviceAnswering((_) => problem(429, 'rate_limited'));
 
