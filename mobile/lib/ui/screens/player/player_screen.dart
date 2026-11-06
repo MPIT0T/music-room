@@ -1,16 +1,18 @@
-import 'dart:convert';
-
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:music_room/data/models/playback_status.dart';
+import 'package:music_room/data/models/queue.dart';
 
 import 'package:music_room/data/models/track.dart';
 import 'package:music_room/ui/widgets/widgets.dart';
 import 'package:music_room/ui/theme/tokens.dart';
+import 'package:music_room/core/rooms_service.dart';
+import 'package:music_room/core/services.dart';
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key});
+  const PlayerScreen({super.key, required this.roomId});
+
+  final String roomId;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -24,26 +26,41 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (p.processingState == .loading) return .paused;
     return p.playing ? .playing : .paused;
   });
-  Track? _track;
+
+  final RoomService _rooms = roomService;
+  QueueItem? _playing;
+  String? _error;
+
+  Track? get _track => _playing?.track;
 
   @override
   void initState() {
     super.initState();
 
-    // TODO: _player.setUrl(widget.track.audioUrl);
     _load();
   }
 
   Future<void> _load() async {
-    final raw = await rootBundle.loadString('assets/dev/jamendo_track.json');
-    final track = Track.fromJamendo((jsonDecode(raw)['results'] as List).first);
-    if (!mounted) return;
-    setState(() => _track = track);
     try {
-      await _player.setUrl(_track!.audioUrl);
-    } catch (e) {
+      final q = await _rooms.queue(widget.roomId);
+      if (q.playing == null && q.queue.isNotEmpty) {
+        _rooms.skip(widget.roomId);
+        return;
+      }
       if (!mounted) return;
-      setState(() => _track = null);
+      setState(() => _playing = q.playing);
+      if (_playing != null) _startPlaying(_playing!.track);
+    } on RoomFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  Future<void> _startPlaying(Track track) async {
+    try {
+      final url = await _rooms.streamUrl(track.id);
+      _player.setUrl(url);
+    } on RoomFailure catch (e) {
+      if (mounted) setState(() => _error = e.message);
     }
   }
 
@@ -71,11 +88,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
               padding: .all(Space.cardGap),
               child: AppTrackCover(imageUrl: _track?.coverUrl),
             ),
-            Text(_track?.name ?? 'Unknown', style: tt.titleMedium),
+            Text(_track?.title ?? 'Unknown', style: tt.titleMedium),
             Row(
               children: [
                 Text(
-                  _track?.artistName ?? 'Unknown',
+                  _track?.artist ?? 'Unknown',
                   style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 Text(
@@ -87,7 +104,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: Space.sm),
             AppPlayerProgress(
               position: _player.positionStream,
-              duration: _track?.duration,
+              duration: _track?.durationMs,
               onSeek: _player.seek,
             ),
             const SizedBox(height: Space.xl),

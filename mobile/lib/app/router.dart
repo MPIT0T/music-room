@@ -42,7 +42,8 @@ abstract final class AppRouterConfig {
       GoRoute(
         path: '/rooms/:id',
         builder: (context, state) {
-          return const PlayerScreen();
+          final String id = state.pathParameters['id']!;
+          return PlayerScreen(roomId: id);
         },
       ),
       StatefulShellRoute.indexedStack(

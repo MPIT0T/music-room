@@ -1,4 +1,5 @@
 import 'package:music_room/core/api_client.dart';
+import 'package:music_room/data/models/queue.dart';
 import 'package:music_room/data/models/room.dart';
 
 class RoomFailure implements Exception {
@@ -21,9 +22,12 @@ class RoomService {
         'Private rooms and voting restrictions need a premium account.',
     'room_limit_reached':
         'Free accounts host one room at a time. Delete it or go premium.',
-    'validation_failed': 'Error validation failed',
-    'network_error': 'Error network',
-    'unauthorized': 'Error unauthorized',
+    'validation_failed': 'Error validation failed.',
+    'network_error': 'Error network.',
+    'unauthorized': 'Error unauthorized.',
+    'track_unavailable': 'Track is unavailable.',
+    'music_provider_error': 'Error from music provider',
+    'music_unavailable': 'Music unavailable',
   };
 
   Future<Room> createRoom(
@@ -51,6 +55,21 @@ class RoomService {
   Future<List<Room>> listRoom() => _call(() async {
     final res = await _api.get('/v1/rooms');
     return _parse(res.body['rooms'], Room.fromJson);
+  });
+
+  Future<RoomQueue> queue(String roomId) => _call(() async {
+    final res = await _api.get('/v1/room/$roomId/tracks');
+    return _parse(res.body, RoomQueue.fromJson).first;
+  });
+
+  Future<RoomQueue> skip(String roomId) => _call(() async {
+    final res = await _api.postJson('/v1/rooms/$roomId/skip', {}, auth: true);
+    return _parse(res.body, RoomQueue.fromJson).first;
+  });
+
+  Future<String> streamUrl(String trackId) => _call(() async {
+    final res = await _api.get('/v1/tracks/$trackId/stream');
+    return res.body['url'];
   });
 
   static List<T> _parse<T>(
