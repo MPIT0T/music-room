@@ -108,11 +108,15 @@ db: ## MariaDB client
 # Public client ID read from .env (no secret), passed to Flutter at build time
 GOOGLE_CLIENT_ID_WEB = $(shell sed -n 's/^GOOGLE_CLIENT_ID_WEB=//p' .env 2>/dev/null)
 
-mobile: ## Launches the flutter app (hot reload)
+# Flutter device: the first Android device connected (emulator or phone), else Chrome.
+# Override with: make mobile d=chrome
+d ?= $(or $(shell adb devices 2>/dev/null | awk 'NR>1 && $$2=="device" {print $$1; exit}'),chrome)
+
+mobile: ## Launches the flutter app (hot reload) on the emulator/phone, else Chrome
 	@# The phone (or emulator) reaches the api on its own localhost:3000; ignored without adb
 	-@adb reverse tcp:3000 tcp:3000 >/dev/null 2>&1
 	@# Fixed web port: Google only accepts the origins declared in the OAuth client
-	cd mobile && flutter run --web-port 5000 --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
+	cd mobile && flutter run -d $(d) --web-port 5000 --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
 
 share: ## Serves the built web app to the other school computers (stop make mobile first)
 	cd mobile && flutter build web --dart-define=GOOGLE_CLIENT_ID_WEB=$(GOOGLE_CLIENT_ID_WEB)
