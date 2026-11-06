@@ -29,6 +29,8 @@ export const limits = {
   socketSubscribe: { name: 'socket-subscribe', limit: 60, windowSeconds: 60 },
   // Only caps the log lines: refusing an IP would also lock out valid users sharing it (42)
   socketRejectedLog: { name: 'socket-rejected-log', limit: 20, windowSeconds: 60 },
+  // play / pause / skip / seek
+  playbackControl: { name: 'playback-control', limit: 120, windowSeconds: 60 },
   // Plan switches are simulated (no payment): enough to try both plans, not to hammer the route
   planChange: { name: 'plan-change', limit: 20, windowSeconds: 60 * 60 },
 };

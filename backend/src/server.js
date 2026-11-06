@@ -11,6 +11,7 @@ const io = socketSetup(app.server, {
   rateLimiter: app.rateLimiter,
   limits: app.limits,
   devTools: app.devTools,
+  redis: app.redis,
 });
 
 app.decorate('io', io);

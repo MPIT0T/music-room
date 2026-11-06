@@ -1,10 +1,13 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { pub, sub } from './redis.js';
+import { pub, sub, redis } from './redis.js';
 import { clientHeader, parseUserAgent } from '../logger.js';
 import { MAX_SOCKETS_PER_USER, MAX_SOCKET_MESSAGE_BYTES } from '../security/limits.js';
 import { loadVisibleRoom } from '../rooms/guards.js';
 import { devBroadcastHandler } from '../dev/socket.js';
+import { isDeviceOnline } from '../devices/presence.js';
+import { emitPlayback } from '../rooms/events.js';
+import { pauseRoomsOfDevice } from '../rooms/playback.js';
 
 // Same client context as the HTTP logs: platform, model and app version
 const clientContext = (socket) => parseUserAgent(socket.handshake.headers?.['user-agent']);
@@ -71,6 +74,7 @@ export function socketSetup(
   io.on('connection', (socket) => {
     handleConnection(socket, { db, log, rateLimiter, limits });
     if (devTools) socket.on('dev:broadcast', devBroadcastHandler(io, socket));
+    socket.on('disconnect', deviceOfflineHandler(io, redis, socket, log));
   });
 
   io.on('close', () => {});
@@ -132,6 +136,21 @@ export function subscribeHandler(socket, db, log, allowed = async () => true) {
     } catch (err) {
       log?.error({ err, roomId, result: 'error' }, 'socket subscribe');
       reply({ ok: false, code: 'INTERNAL' });
+    }
+  };
+}
+
+export function deviceOfflineHandler(io, redis, socket, log) {
+  return async () => {
+    const { deviceId } = socket.data;
+    try {
+      if (redis == null || (await isDeviceOnline(io, deviceId))) return;
+      for (const { roomId, playback } of await pauseRoomsOfDevice(redis, deviceId)) {
+        emitPlayback(io, roomId, playback, deviceId);
+        log?.info({ roomId, deviceId }, 'playing device offline, playback paused');
+      }
+    } catch (err) {
+      log?.error({ err, deviceId }, 'pause on disconnect failed');
     }
   };
 }
