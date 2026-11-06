@@ -7,7 +7,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // The API address chosen in the app must be known before the first request
   await serverSettings.load();
-  apiClient.onSessionExpired = () => AppRouterConfig.router.go('/welcome');
+  apiClient.onSessionExpired = () {
+    AppRouterConfig.router.go('/welcome');
+    realtimeService.disconnect();
+  };
   runApp(
     MaterialApp.router(
       routerConfig: AppRouterConfig.router,

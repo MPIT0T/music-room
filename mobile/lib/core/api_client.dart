@@ -97,6 +97,8 @@ class ApiClient {
     return _result(res);
   }
 
+  Future<bool> refreshSession() => _refreshOnce();
+
   // Single flight (contract): requests failing together wait for the same refresh,
   // otherwise the second refresh would replay a token the first one already rotated
   Future<bool> _refreshOnce() =>

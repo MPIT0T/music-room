@@ -11,5 +11,3 @@ export 'package:music_room/ui/screens/auth/signup_screen.dart';
 export 'package:music_room/ui/screens/auth/welcome_screen.dart';
 export 'package:music_room/ui/screens/auth/forgot_password_screen.dart';
 export 'package:music_room/ui/screens/player/player_screen.dart';
-
-//export 'package:music_room/ui/screens/';

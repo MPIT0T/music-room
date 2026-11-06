@@ -132,6 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logout() async {
+    realtimeService.disconnect();
     await _auth.logout();
     if (mounted) context.go('/welcome');
   }
