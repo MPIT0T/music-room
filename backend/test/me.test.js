@@ -282,3 +282,15 @@ test('an empty phone clears it, like the other optional fields', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().friends.phone, null);
 });
+
+test('the reference genres come from the migration, without make seed', async () => {
+  const res = await call('GET', '/v1/genres', 'max');
+
+  const names = res.json().genres.map((g) => g.name);
+  for (const name of ['Pop', 'Rock', 'Electronic', 'Hip-hop', 'Jazz']) {
+    assert.ok(names.includes(name), `${name} is missing`);
+  }
+  for (const name of ['Classical', 'Reggae', 'Metal', 'Folk', 'Ambient']) {
+    assert.ok(names.includes(name), `${name} is missing`);
+  }
+});

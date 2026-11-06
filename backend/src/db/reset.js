@@ -1,4 +1,4 @@
-const TABLES_IN_ORDER = ['rooms', 'users', 'tracks', 'genres'];
+const TABLES_IN_ORDER = ['rooms', 'users', 'tracks'];
 
 export async function resetDb(pool) {
   if (process.env.NODE_ENV === 'production') {
