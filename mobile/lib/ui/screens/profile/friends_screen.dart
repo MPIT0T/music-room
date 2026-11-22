@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:music_room/core/services.dart';
+import 'package:music_room/core/realtime_service.dart';
 import 'package:music_room/data/models/friend.dart';
 import 'package:music_room/friends/friends_service.dart';
 import 'package:music_room/ui/theme/tokens.dart';
@@ -27,6 +28,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   String? _error;
 
   final _searchField = TextEditingController();
+  late final StreamSubscription<RealtimeEvent> _eventsSub;
   List<SearchResult> _results = [];
   Timer? _debounce;
   int _searchId = 0;
@@ -35,12 +37,16 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void initState() {
     super.initState();
     _load();
+    _eventsSub = realtimeService.events
+        .where((e) => e.event == 'friends.changed' || e.event == 'reconnected')
+        .listen((_) => _load());
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchField.dispose();
+    _eventsSub.cancel();
     super.dispose();
   }
 
