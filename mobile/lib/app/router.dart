@@ -41,9 +41,14 @@ abstract final class AppRouterConfig {
       ),
       GoRoute(
         path: '/rooms/:id',
-        builder: (context, state) {
-          return const PlayerScreen();
-        },
+        builder: (context, state) =>
+            RoomScreen(roomId: state.pathParameters['id']!),
+        routes: [
+          GoRoute(
+            path: 'player',
+            builder: (context, state) => const PlayerScreen(),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
