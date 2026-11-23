@@ -16,6 +16,9 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen> {
+  static const _rowHeight = 72.0; // two-line ListTile
+  static const _slide = Duration(milliseconds: 200);
+
   final _realtime = realtimeService;
   late final StreamSubscription<RealtimeEvent> _eventsSub;
   int _lastLoad = 0;
@@ -108,7 +111,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   ? const CircularProgressIndicator()
                   : Text(_error!),
             )
-          : ListView(
+          : Column(
               children: [
                 if (queue.playing != null)
                   ListTile(
@@ -118,12 +121,35 @@ class _RoomScreenState extends State<RoomScreen> {
                   ),
                 if (queue.queue.isEmpty)
                   const ListTile(title: Text('No track in the queue yet.')),
-                for (final item in queue.queue)
-                  ListTile(
-                    title: Text(item.track.title),
-                    subtitle: Text(item.track.artist),
-                    trailing: _voteButton(item),
+                // Rows have a fixed height, so a row's top is index * _rowHeight:
+                // AnimatedPositioned slides it to its new rank, however far it moves.
+                // The key keeps the same widget for the same track between two lists.
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: SizedBox(
+                      height: queue.queue.length * _rowHeight,
+                      child: Stack(
+                        children: [
+                          for (var i = 0; i < queue.queue.length; i++)
+                            AnimatedPositioned(
+                              key: ValueKey(queue.queue[i].id),
+                              duration: _slide,
+                              curve: Curves.easeOut,
+                              top: i * _rowHeight,
+                              left: 0,
+                              right: 0,
+                              height: _rowHeight,
+                              child: ListTile(
+                                title: Text(queue.queue[i].track.title),
+                                subtitle: Text(queue.queue[i].track.artist),
+                                trailing: _voteButton(queue.queue[i]),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
+                ),
               ],
             ),
     );
