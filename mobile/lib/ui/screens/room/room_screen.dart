@@ -58,6 +58,45 @@ class _RoomScreenState extends State<RoomScreen> {
     }
   }
 
+  Future<void> _toggleVote(QueueItem item) async {
+    try {
+      if (item.myVote) {
+        await queueService.unvote(widget.roomId, item.id);
+      } else {
+        await queueService.vote(widget.roomId, item.id);
+      }
+      await _load();
+    } on QueueFailure catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  // Circle with the vote count; filled when I voted. Tap = vote / unvote.
+  Widget _voteButton(QueueItem item) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: () => _toggleVote(item),
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: item.myVote ? cs.primary : null,
+          border: Border.all(color: item.myVote ? cs.primary : cs.outline),
+        ),
+        child: Text(
+          '${item.votes}',
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: item.myVote ? cs.onPrimary : null),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final queue = _queue;
@@ -83,7 +122,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   ListTile(
                     title: Text(item.track.title),
                     subtitle: Text(item.track.artist),
-                    trailing: Text('${item.votes}'),
+                    trailing: _voteButton(item),
                   ),
               ],
             ),
